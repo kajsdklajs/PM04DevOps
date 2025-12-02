@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Музыкальный пазл — Выбор мультика</title>
+<style>
+  :root {
+    --accent: #FF6B6B;
+    --accent2: #60A5FA;
+    --bg: #FFF8E7;
+  }
+  body {
+    margin:0; font-family: "Comic Sans MS", sans-serif;
+    background: linear-gradient(180deg, #FFF8E7, #FFF3E0);
+    color:#222;
+  }
+  .wrap {
+    max-width:960px; margin:30px auto; padding:20px;
+    background:#fff; border-radius:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.1);
+  }
+  header { text-align:center; margin-bottom:20px; }
+  h1 { font-size:26px; margin:0; color:#333; }
+  .menu {
+    display:flex; justify-content:center; gap:20px; flex-wrap:wrap;
+  }
+  .menu-item {
+    width:200px; height:130px; border-radius:12px;
+    overflow:hidden; cursor:pointer; position:relative;
+    box-shadow:0 6px 14px rgba(0,0,0,0.15);
+    border:4px solid transparent;
+    transition: transform 0.3s, border 0.3s;
+  }
+  .menu-item:hover { transform:scale(1.05); border-color:var(--accent2); }
+  .menu-item img {
+    width:100%; height:100%; object-fit:cover;
+  }
+  .menu-item span {
+    position:absolute; bottom:4px; left:0; right:0;
+    text-align:center; background:rgba(0,0,0,0.5);
+    color:#fff; font-weight:bold; font-size:16px;
+  }
+
+  /* Game styles */
+  .board { display:flex; gap:18px; margin-top:18px; }
+  .left { flex:0 0 300px; }
+  .right { flex:1; }
+  .puzzle-area {
+    width:480px; height:320px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(2,1fr);
+    gap:4px;
+    background:#e8f9ff;
+    border:4px solid #bde0fe;
+  }
+  .slot { border:2px dashed rgba(0,0,0,0.2); position:relative; overflow:hidden; }
+  .piece {
+    width:160px; height:160px;
+    background-size:480px 320px;
+    cursor:grab;
+    border-radius:6px;
+    transition:transform 0.2s;
+  }
+  .piece:active { transform:scale(1.05); }
+  .piece.dragging { opacity:0.5; }
+  .controls { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .btn {
+    background:var(--accent); color:#fff;
+    border:none; padding:10px 12px;
+    border-radius:8px; cursor:pointer; font-weight:bold;
+  }
+  .btn.secondary { background:var(--accent2); }
+  .status { margin-top:10px; font-weight:bold; }
+  #backBtn { margin-top:20px; display:inline-block; background:#bbb; }
+  canvas.confetti { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+
+  @media(max-width:700px){ .board{flex-direction:column; align-items:center;} .puzzle-area{width:100%; height:auto; aspect-ratio:3/2;} .piece{width:100px;height:100px;} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>🎵 Музыкальный пазл</h1>
+    <p>Выбери мультфильм, чтобы собрать пазл!</p>
+  </header>
+
+  <div id="menu" class="menu">
+    <div class="menu-item" data-puzzle="cars">
+      <img src="https://framerusercontent.com/images/h1NV3edOgspHAM7NaBb46h36bM.jpeg" alt="Тачки">
+      <span>Тачки</span>
+    </div>
+    <div class="menu-item" data-puzzle="smeshariki">
+      <img src="https://upload.wikimedia.org/wikipedia/ru/thumb/9/92/%D0%A1%D0%BC%D0%B5%D1%88%D0%B0%D1%80%D0%B8%D0%BA%D0%B8_%D0%BF%D0%B5%D1%80%D1%81%D0%BE%D0%BD%D0%B0%D0%B6%D0%B8.png/500px-%D0%A1%D0%BC%D0%B5%D1%88%D0%B0%D1%80%D0%B8%D0%BA%D0%B8_%D0%BF%D0%B5%D1%80%D1%81%D0%BE%D0%BD%D0%B0%D0%B6%D0%B8.png" alt="Смешарики">
+      <span>Смешарики</span>
+    </div>
+    <div class="menu-item" data-puzzle="frozen">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRh20vOtEHVKGJo_3rPlmsubxHY7r8NhHcJgQ&s" alt="Холодное сердце">
+      <span>Холодное сердце</span>
+    </div>
+  </div>
+
+  <div id="game" style="display:none;">
+    <button id="backBtn" class="btn secondary">← В меню</button>
+    <div class="board">
+      <div class="left">
+        <div id="pieces" class="pieces" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+        <div class="controls">
+          <button class="btn" id="shuffleBtn">Перемешать</button>
+          <button class="btn secondary" id="resetBtn">Сбросить</button>
+        </div>
+      </div>
+      <div class="right">
+        <div id="puzzle" class="puzzle-area"></div>
+        <div class="status" id="status">Собрано: 0 / 6</div>
+      </div>
+    </div>
+    <canvas id="confettiCanvas" class="confetti"></canvas>
+  </div>
+</div>
+
+<script>
+const puzzles = {
+  cars: "https://framerusercontent.com/images/h1NV3edOgspHAM7NaBb46h36bM.jpeg",
+  smeshariki: "https://upload.wikimedia.org/wikipedia/ru/thumb/9/92/%D0%A1%D0%BC%D0%B5%D1%88%D0%B0%D1%80%D0%B8%D0%BA%D0%B8_%D0%BF%D0%B5%D1%80%D1%81%D0%BE%D0%BD%D0%B0%D0%B6%D0%B8.png/500px-%D0%A1%D0%BC%D0%B5%D1%88%D0%B0%D1%80%D0%B8%D0%BA%D0%B8_%D0%BF%D0%B5%D1%80%D1%81%D0%BE%D0%BD%D0%B0%D0%B6%D0%B8.png",
+  frozen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRh20vOtEHVKGJo_3rPlmsubxHY7r8NhHcJgQ&s"
+};
+
+let currentImage = null;
+const ROWS = 2, COLS = 3, TOTAL = ROWS * COLS;
+let slots = Array(TOTAL).fill(null);
+const targetOrder = [0,1,2,3,4,5];
+let pieceOrder = [...targetOrder];
+let audioCtx = null;
+
+// DOM refs
+const menu = document.getElementById('menu');
+const game = document.getElementById('game');
+const piecesEl = document.getElementById('pieces');
+const puzzleEl = document.getElementById('puzzle');
+const statusEl = document.getElementById('status');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const resetBtn = document.getElementById('resetBtn');
+const backBtn = document.getElementById('backBtn');
+const confettiCanvas = document.getElementById('confettiCanvas');
+
+// Menu click
+document.querySelectorAll('.menu-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    currentImage = puzzles[item.dataset.puzzle];
+    startGame();
+  });
+});
+
+backBtn.addEventListener('click', ()=>{
+  game.style.display='none';
+  menu.style.display='flex';
+  resetPuzzle();
+});
+
+// Game setup
+function startGame(){
+  menu.style.display='none';
+  game.style.display='block';
+  renderSlots();
+  renderPieces();
+  renderSlotsContent();
+  updateStatus();
+}
+
+function renderSlots(){
+  puzzleEl.innerHTML='';
+  for(let i=0;i<TOTAL;i++){
+    const s=document.createElement('div');
+    s.className='slot'; s.dataset.slot=i;
+    s.addEventListener('dragover', e=>e.preventDefault());
+    s.addEventListener('drop', e=>{
+      const pid=e.dataTransfer.getData('text/plain');
+      placePiece(Number(pid),i);
+    });
+    puzzleEl.appendChild(s);
+  }
+}
+
+function renderPieces(){
+  piecesEl.innerHTML='';
+  pieceOrder.forEach(pid=>{
+    const p=document.createElement('div');
+    p.className='piece'; p.draggable=true;
+    p.dataset.pid=pid;
+    const col=pid%COLS, row=Math.floor(pid/COLS);
+    const x=-col*(480/COLS), y=-row*(320/ROWS);
+    p.style.backgroundImage=`url('${currentImage}')`;
+    p.style.backgroundPosition=`${x}px ${y}px`;
+    p.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain',pid);
+      p.classList.add('dragging');
+    });
+    p.addEventListener('dragend',()=>p.classList.remove('dragging'));
+    piecesEl.appendChild(p);
+  });
+}
+
+function placePiece(pid,slotIdx){
+  slots[slotIdx]=pid;
+  renderSlotsContent();
+  checkPlacement(slotIdx);
+  updateStatus();
+}
+
+function renderSlotsContent(){
+  document.querySelectorAll('.slot').forEach(slot=>{
+    const idx=Number(slot.dataset.slot);
+    slot.innerHTML='';
+    if(slots[idx]!=null){
+      const pid=slots[idx];
+      const frag=document.createElement('div');
+      frag.className='piece';
+      const col=pid%COLS,row=Math.floor(pid/COLS);
+      const x=-col*(480/COLS), y=-row*(320/ROWS);
+      frag.style.backgroundImage=`url('${currentImage}')`;
+      frag.style.backgroundPosition=`${x}px ${y}px`;
+      frag.style.cursor='default';
+      slot.appendChild(frag);
+    }
+  });
+}
+
+function checkPlacement(slotIdx){
+  const pid=slots[slotIdx];
+  if(pid===targetOrder[slotIdx]){
+    playFragment(pid);
+    if(slots.every((v,i)=>v===targetOrder[i])) onComplete();
+  }
+}
+
+function updateStatus(){
+  const placed=slots.filter(v=>v!==null).length;
+  statusEl.textContent=`Собрано: ${placed} / ${TOTAL}`;
+}
+
+function shufflePieces(){
+  pieceOrder=shuffleArray([...targetOrder]);
+  slots=Array(TOTAL).fill(null);
+  renderPieces(); renderSlotsContent(); updateStatus();
+}
+function resetPuzzle(){
+  slots=Array(TOTAL).fill(null);
+  pieceOrder=[...targetOrder];
+  renderPieces(); renderSlotsContent(); updateStatus();
+}
+
+// Audio (simple)
+function ensureAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+function playTone(f,d=0.3,when=0){
+  ensureAudio();
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=f; o.type='sine'; o.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.001,when);
+  g.gain.exponentialRampToValueAtTime(0.25,when+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001,when+d);
+  o.start(when); o.stop(when+d+0.05);
+}
+function playFragment(){ playTone(523+Math.random()*300); }
+function playFullMelody(){
+  const seq=[523,659,784,880,659,523];
+  seq.forEach((f,i)=>playTone(f,0.3,audioCtx.currentTime+i*0.35));
+}
+
+// Confetti celebration
+function celebrate(){
+  const ctx=confettiCanvas.getContext('2d');
+  confettiCanvas.width=innerWidth; confettiCanvas.height=innerHeight;
+  const parts=[];
+  for(let i=0;i<150;i++){
+    parts.push({x:Math.random()*innerWidth,y:Math.random()*-200,vx:(Math.random()-0.5)*8,vy:Math.random()*5+2,size:6+Math.random()*8,color:`hsl(${Math.random()*360},70%,60%)`,rot:Math.random()*360});
+  }
+  let t=0;
+  function loop(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    parts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=4;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color;
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+      ctx.restore();
+      if(p.y>innerHeight+50){ p.y=-20; p.x=Math.random()*innerWidth; }
+    });
+    if(t++<300) requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function onComplete(){
+  playFullMelody();
+  celebrate();
+  statusEl.textContent='🎉 Пазл собран! Молодец!';
+}
+
+function shuffleArray(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+shuffleBtn.addEventListener('click', shufflePieces);
+resetBtn.addEventListener('click', resetPuzzle);
+</script>
+</body>
+</html>

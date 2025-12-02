@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Виртуальный музыкальный конструктор — для детей</title>
+  <style>
+    :root{--bg:#0f1724;--panel:#071022;--muted:#94a3b8;--accent:#f97316;--card:#0ea5a6}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial;background:linear-gradient(180deg,#041025,#071225);color:#e6eef6}
+    .app{max-width:1200px;margin:20px auto;padding:18px;border-radius:12px}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:14px;margin-top:16px}
+    .panel{background:linear-gradient(180deg,#071826,#071022);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
+
+    /* Library */
+    .library{display:flex;flex-direction:column;gap:8px}
+    .block{background:linear-gradient(180deg,#0b2a33,#04262b);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:grab;display:flex;align-items:center;gap:10px}
+    .block.dragging{opacity:0.5}
+    .block .label{font-weight:700}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* Timeline */
+    .timeline-wrap{display:flex;flex-direction:column;gap:10px}
+    .controls{display:flex;align-items:center;gap:8px}
+    .btn{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+    .btn.secondary{background:transparent;border:2px solid rgba(255,255,255,0.04);color:var(--muted)}
+    .bpm{display:flex;align-items:center;gap:8px;color:var(--muted)}
+
+    .tracks{display:flex;flex-direction:column;gap:8px}
+    .track{display:flex;align-items:center;gap:8px}
+    .track-label{width:120px;color:var(--muted);font-weight:700}
+    .slots{display:flex;gap:6px;flex-wrap:wrap}
+    .slot{width:64px;height:64px;border-radius:8px;background:linear-gradient(180deg,#041824,#05222b);display:flex;align-items:center;justify-content:center;border:2px dashed rgba(255,255,255,0.03);cursor:pointer;position:relative}
+    .slot.filled{background:linear-gradient(180deg,#0ea5a6,#06b6d4);color:#012;box-shadow:0 10px 24px rgba(14,165,166,0.16)}
+    .slot .remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.2);border-radius:6px;padding:2px 4px;font-size:12px}
+
+    .footer{margin-top:12px;color:var(--muted);font-size:13px}
+
+    /* Settings */
+    .settings{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .setting-row{display:flex;gap:8px;align-items:center}
+    input[type=file]{display:none}
+
+    @media (max-width:980px){ .layout{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Виртуальный музыкальный конструктор</h1>
+        <div class="subtitle">Перетаскивай звуковые блоки на таймлайн, назначай им сэмплы и проигрывай мелодию</div>
+      </div>
+      <div style="margin-left:auto;color:var(--muted);font-weight:700">Простой интерфейс для детей</div>
+    </header>
+
+    <div class="layout">
+      <div class="panel">
+        <h3 style="margin-top:0">Библиотека блоков</h3>
+        <div class="library" id="library">
+          <!-- draggable blocks inserted here -->
+        </div>
+
+        <div class="settings">
+          <div class="setting-row"><label class="small">Добавить свой сэмпл (mp3/wav):</label></div>
+          <div class="setting-row"><label class="btn secondary" id="uploadLabel">Загрузить</label><input id="fileInput" type="file" accept="audio/*"></div>
+          <div class="setting-row"><label class="small">Или назначить URL:</label></div>
+          <div class="setting-row"><input id="sampleUrl" placeholder="https://.../sound.mp3" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit"></div>
+          <div class="setting-row"><button class="btn" id="addUrlBtn">Добавить в библиотеку</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel timeline-wrap">
+          <div class="controls">
+            <button class="btn" id="playBtn">▶ Воспроизвести</button>
+            <button class="btn secondary" id="stopBtn">■ Стоп</button>
+            <div class="bpm">Темп: <input id="bpm" type="range" min="60" max="160" value="100" style="margin:0 6px"> <span id="bpmVal">100</span> BPM</div>
+            <div style="margin-left:auto;display:flex;gap:8px"><button class="btn secondary" id="exportBtn">Export JSON</button><button class="btn secondary" id="clearBtn">Очистить</button></div>
+          </div>
+
+          <div style="margin-top:6px;display:flex;gap:8px;align-items:center"><div class="small">Доступные слоты: 16</div></div>
+
+          <div style="margin-top:10px" class="tracks" id="tracks">
+            <!-- tracks will be rendered here -->
+          </div>
+
+          <div class="footer">Перетащите блок из левой панели на любой слот (плитку) — затем нажмите ▶</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Virtual Music Constructor
+       - drag blocks from library to timeline slots
+       - assign uploaded or URL samples to blocks
+       - play timeline sequentially with tempo
+       - simple export to JSON
+    */
+
+    // --- Basic data ---
+    const DEFAULT_SAMPLES = [
+      {id:'kick', name:'Кик (удар)', url:'https://cdn.freesound.org/previews/66/66863_634166-lq.mp3'},
+      {id:'snare', name:'Снэр', url:'https://cdn.freesound.org/previews/20/20647_102265-lq.mp3'},
+      {id:'hihat', name:'Хайхэт', url:'https://cdn.freesound.org/previews/14/14613_7617-lq.mp3'},
+      {id:'bell', name:'Колокольчик', url:'https://cdn.freesound.org/previews/38/38435_512123-lq.mp3'}
+    ];
+
+    const TRACKS = [ 'Ударные', 'Мелодия' ];
+    const SLOTS = 16; // number of steps
+
+    // state
+    const library = []; // {blockId,name,sampleUrl}
+    const timeline = Array.from({length:TRACKS.length}, ()=>Array.from({length:SLOTS}, ()=>null));
+
+    // DOM refs
+    const libEl = document.getElementById('library');
+    const tracksEl = document.getElementById('tracks');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const bpmEl = document.getElementById('bpm');
+    const bpmVal = document.getElementById('bpmVal');
+    const fileInput = document.getElementById('fileInput');
+    const uploadLabel = document.getElementById('uploadLabel');
+    const sampleUrl = document.getElementById('sampleUrl');
+    const addUrlBtn = document.getElementById('addUrlBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // audio
+    let audioCtx = null; const audioBuffers = {}; // cache for decoded samples
+
+    function ensureAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    async function fetchAndDecode(url){ ensureAudioCtx(); if(audioBuffers[url]) return audioBuffers[url]; try{ const res = await fetch(url); const arr = await res.arrayBuffer(); const buf = await audioCtx.decodeAudioData(arr); audioBuffers[url] = buf; return buf; }catch(e){ console.warn('Не удалось загрузить/декодировать',url,e); return null; } }
+    function playBuffer(buf, time=0, volume=1){ if(!buf) return; const src = audioCtx.createBufferSource(); const gain = audioCtx.createGain(); src.buffer = buf; gain.gain.value = volume; src.connect(gain); gain.connect(audioCtx.destination); src.start(time); }
+
+    // init library with defaults
+    function initLibrary(){ DEFAULT_SAMPLES.forEach(s=> addLibraryBlock(s.name,s.url)); renderLibrary(); }
+
+    function addLibraryBlock(name,url){ const id = 'blk_'+Math.random().toString(36).slice(2,9); library.push({id,name,url}); }
+
+    function renderLibrary(){ libEl.innerHTML=''; library.forEach(b=>{
+      const el = document.createElement('div'); el.className='block'; el.draggable=true; el.dataset.blockId = b.id; el.innerHTML = `<div class="label">${b.name}</div><div style="margin-left:auto;font-size:12px;color:var(--muted)">ID:${b.id.slice(-4)}</div>`;
+      // drag handlers
+      el.addEventListener('dragstart', (e)=>{ el.classList.add('dragging'); e.dataTransfer.setData('text/plain', b.id); });
+      el.addEventListener('dragend', ()=>el.classList.remove('dragging'));
+      el.addEventListener('click', async ()=>{ // quick play
+        ensureAudioCtx(); const buf = await fetchAndDecode(b.url); if(buf) playBuffer(buf,audioCtx.currentTime,1.0); });
+      libEl.appendChild(el);
+    }); }
+
+    // render tracks/timeline
+    function renderTracks(){ tracksEl.innerHTML=''; TRACKS.forEach((tName,ti)=>{
+      const tr = document.createElement('div'); tr.className='track';
+      const label = document.createElement('div'); label.className='track-label'; label.textContent = tName;
+      const slotsWrap = document.createElement('div'); slotsWrap.className='slots';
+      for(let s=0;s<SLOTS;s++){
+        const slot = document.createElement('div'); slot.className='slot'; slot.dataset.track = ti; slot.dataset.slot = s; slot.innerHTML = timeline[ti][s]? `<div>${timeline[ti][s].name}</div><div class="remove">✕</div>` : `<div class="small">${s+1}</div>`;
+        if(timeline[ti][s]) slot.classList.add('filled');
+        // allow drop
+        slot.addEventListener('dragover',(e)=>{ e.preventDefault(); slot.style.borderColor='rgba(255,255,255,0.2)'; });
+        slot.addEventListener('dragleave',()=>{ slot.style.borderColor='rgba(255,255,255,0.03)'; });
+        slot.addEventListener('drop', async (e)=>{
+          e.preventDefault(); slot.style.borderColor='rgba(255,255,255,0.03)'; const blockId = e.dataTransfer.getData('text/plain'); const blk = library.find(x=>x.id===blockId);
+          if(blk){ timeline[ti][s] = { id: blk.id, name: blk.name, url: blk.url }; renderTracks(); }
+        });
+        // click to remove or play
+        slot.addEventListener('click', async ()=>{
+          const cell = timeline[ti][s]; if(cell){ // remove on small click? ask (we'll remove when clicking x)
+            // play sample
+            ensureAudioCtx(); const buf = await fetchAndDecode(cell.url); if(buf) playBuffer(buf,audioCtx.currentTime,1.0); }
+        });
+        // remove button
+        slot.addEventListener('click', (e)=>{
+          if(e.target.classList && e.target.classList.contains('remove')){ timeline[ti][s] = null; renderTracks(); }
+        });
+        slotsWrap.appendChild(slot);
+      }
+      tr.appendChild(label); tr.appendChild(slotsWrap); tracksEl.appendChild(tr);
+    }); }
+
+    // playback
+    let playTimer = null; let isPlaying=false; let currentStep=0;
+    async function startPlayback(){ if(isPlaying) return; ensureAudioCtx(); isPlaying=true; playBtn.textContent='⏸ Пауза'; const interval = (60000/Number(bpmEl.value))/4; // 16th notes timing, 4 slots per beat
+      currentStep = 0; playTimer = setInterval(()=>{ playStep(currentStep); currentStep=(currentStep+1)%SLOTS; highlightStep(currentStep); }, interval);
+    }
+    function stopPlayback(){ if(!isPlaying) return; isPlaying=false; playBtn.textContent='▶ Воспроизвести'; clearInterval(playTimer); playTimer=null; unhighlightAll(); }
+
+    async function playStep(step){ for(let t=0;t<TRACKS.length;t++){ const cell = timeline[t][step]; if(cell){ const buf = await fetchAndDecode(cell.url); if(buf){ playBuffer(buf,audioCtx.currentTime,1.0); } else { // fallback: short tone
+            playFallbackTone(t); } } } }
+    function playFallbackTone(track){ ensureAudioCtx(); const now = audioCtx.currentTime; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = track===0? 'square' : 'sine'; o.frequency.value = track===0?120:440; g.gain.setValueAtTime(0.0001,now); g.gain.exponentialRampToValueAtTime(0.2,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+0.2); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+0.25); }
+
+    function highlightStep(step){ document.querySelectorAll('.slot').forEach(s=>s.style.outline=''); document.querySelectorAll(`.slot[data-slot='${step}']`).forEach(s=>s.style.outline='3px solid rgba(14,165,166,0.18)'); }
+    function unhighlightAll(){ document.querySelectorAll('.slot').forEach(s=>s.style.outline=''); }
+
+    // upload handling
+    uploadLabel.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; if(!file) return; const url = URL.createObjectURL(file); addLibraryBlock(file.name, url); renderLibrary(); });
+
+    addUrlBtn.addEventListener('click', ()=>{
+      const url = sampleUrl.value.trim(); if(!url) return alert('Вставьте URL'); addLibraryBlock(url.split('/').pop(), url); renderLibrary(); sampleUrl.value='';
+    });
+
+    // controls
+    playBtn.addEventListener('click', ()=>{ if(isPlaying) stopPlayback(); else startPlayback(); });
+    stopBtn.addEventListener('click', ()=> stopPlayback());
+    bpmEl.addEventListener('input', ()=>{ bpmVal.textContent = bpmEl.value; if(isPlaying){ stopPlayback(); startPlayback(); } });
+    exportBtn.addEventListener('click', ()=>{
+      const data = { tracks: TRACKS, timeline, bpm: bpmEl.value, library }; const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'composition.json'; a.click(); URL.revokeObjectURL(url);
+    });
+    clearBtn.addEventListener('click', ()=>{ for(let t=0;t<timeline.length;t++) for(let s=0;s<timeline[t].length;s++) timeline[t][s]=null; renderTracks(); });
+
+    // helpers
+    function setup(){ initLibrary(); renderLibrary(); renderTracks(); bpmVal.textContent = bpmEl.value; }
+    setup();
+
+    // accessibility: keyboard shortcuts
+    document.addEventListener('keydown',(e)=>{ if(e.code==='Space'){ e.preventDefault(); playBtn.click(); } if(e.key==='e'){ exportBtn.click(); } });
+
+    // Notes:
+    // - Для автономной работы можно загрузить сэмплы локально (Upload) — они используют blob URL и будут работать пока открыт файл.
+    // - Для долговременного хранения экспортируйте JSON и при следующем открытии добавьте пути в библиотеку вручную.
+  </script>
+</body>
+</html>

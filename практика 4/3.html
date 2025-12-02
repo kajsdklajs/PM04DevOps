@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Найди звук — простая игра</title>
+  <style>
+    :root{--bg:#FFF8E7;--card:#ffffff;--accent:#FF8A65;--muted:#6b6b6b}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:linear-gradient(180deg,#FFF8E7 0%, #FFF3E0 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+    .game{width:100%;max-width:900px;background:var(--card);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,0.12);padding:20px}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0;font-size:22px}
+    .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button.secondary{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+    .row{display:flex;gap:12px;margin-top:16px}
+    .player{flex:0 0 220px;padding:12px;border-radius:12px;background:#fff3e8;border:1px solid rgba(0,0,0,0.04)}
+    .player .big{font-size:18px;margin-bottom:8px}
+    .options{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+    .card{background:linear-gradient(180deg,white,#fff7f3);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;transition:transform .15s,box-shadow .15s}
+    .card img{width:88px;height:88px;object-fit:contain}
+    .card span{margin-top:8px;font-weight:600;color:var(--muted)}
+    .card:active{transform:scale(.98)}
+    .card.correct{outline:4px solid rgba(76,175,80,0.18);box-shadow:0 6px 18px rgba(76,175,80,0.12)}
+    .card.wrong{animation:shake .5s}
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+    .hint{font-size:14px;color:#444;margin-top:8px}
+    .feedback{height:36px;margin-top:10px}
+    .small-muted{font-size:13px;color:var(--muted)}
+    .confetti{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none}
+    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
+    .kbd{background:#fff;border-radius:6px;padding:4px 8px;border:1px solid rgba(0,0,0,0.06);font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="game" role="application" aria-label="Игра Найди звук">
+    <header>
+      <div>
+        <h1>Найди звук</h1>
+        <div class="small-muted">Послушай звук и выбери правильную картинку</div>
+      </div>
+      <div class="controls">
+        <button id="playSound">▶️ Проиграть звук</button>
+        <button id="hintBtn" class="secondary">💡 Подсказка</button>
+        <button id="nextBtn" class="secondary">⟳ Сменить</button>
+      </div>
+    </header>
+
+    <div class="row">
+      <div class="player" aria-hidden="false">
+        <div class="big" id="roundLabel">Раунд 1</div>
+        <div class="small-muted">Нажми "Проиграть звук" или пробел</div>
+        <div class="hint" id="hintText">Подсказки: можно использовать одну подсказку за раунд.</div>
+        <div class="feedback" id="soundFeedback"></div>
+      </div>
+
+      <div class="options" id="options" role="list">
+        <!-- Карточки будут добавлены скриптом -->
+      </div>
+    </div>
+
+    <footer>
+      Поддерживается клавиатура: стрелки ← → для навигации, Enter для выбора, пробел для проигрыша звука.
+    </footer>
+
+    <canvas class="confetti" id="confettiCanvas"></canvas>
+  </div>
+
+  <script>
+    /*
+      Простая игра "Найди звук".
+      Как пользоваться: вы можете заменить звуки на свои файлы (например, cat.mp3/dog.mp3)
+      или указать ссылки в массиве sounds[]. Встроенные генераторы WebAudio используются
+      как запасной вариант.
+    */
+
+    const sounds = [
+      { id: 'cat', label: 'Кошка', img: svgCat(), src: 'sounds/cat.mp3' },
+      { id: 'dog', label: 'Собака', img: svgDog(), src: 'sounds/dog.mp3' },
+      { id: 'piano', label: 'Пианино', img: svgPiano(), src: 'sounds/piano.mp3' },
+      { id: 'trumpet', label: 'Труба', img: svgTrumpet(), src: 'sounds/trumpet.mp3' }
+    ];
+
+    // Настройки игры
+    let round = 0;
+    let correctId = null;
+    let usedHint = false;
+
+    const optionsEl = document.getElementById('options');
+    const playBtn = document.getElementById('playSound');
+    const hintBtn = document.getElementById('hintBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const roundLabel = document.getElementById('roundLabel');
+    const hintText = document.getElementById('hintText');
+    const feedbackEl = document.getElementById('soundFeedback');
+
+    // Preload audio elements if files exist
+    const audioCache = {};
+    sounds.forEach(s => {
+      const a = new Audio();
+      a.src = s.src; // if file is missing, it will fail silently and we use synth
+      a.preload = 'auto';
+      audioCache[s.id] = a;
+    });
+
+    function startRound(){
+      round++;
+      usedHint = false;
+      roundLabel.textContent = `Раунд ${round}`;
+      hintText.textContent = 'Подсказки: можно использовать одну подсказку за раунд.';
+      feedbackEl.textContent = '';
+
+      // choose target and 3 distractors
+      const pool = shuffle([...sounds]);
+      const chosen = pool.slice(0,4);
+      correctId = chosen[ Math.floor(Math.random()*chosen.length) ].id;
+
+      // render options
+      optionsEl.innerHTML = '';
+      chosen.forEach(item => {
+        const card = document.createElement('button');
+        card.className = 'card';
+        card.setAttribute('data-id', item.id);
+        card.setAttribute('role','listitem');
+        card.setAttribute('aria-label', item.label);
+        card.innerHTML = `${item.img}<span>${item.label}</span>`;
+        card.addEventListener('click', () => selectCard(item.id, card));
+        optionsEl.appendChild(card);
+      });
+
+      // focus first option for keyboard
+      const first = optionsEl.querySelector('.card');
+      if(first) first.focus();
+
+      // auto play sound once at start
+      playTargetSound();
+    }
+
+    function selectCard(id, el){
+      // if already answered, ignore
+      if(el.classList.contains('correct')) return;
+      if(id === correctId){
+        el.classList.add('correct');
+        givePositiveFeedback();
+      } else {
+        el.classList.add('wrong');
+        giveNegativeFeedback();
+        setTimeout(()=> el.classList.remove('wrong'), 600);
+      }
+    }
+
+    function givePositiveFeedback(){
+      feedbackEl.textContent = 'Правильно! Отлично — молодец!';
+      playTone(880, 0.12, 'sine');
+      burstConfetti();
+    }
+
+    function giveNegativeFeedback(){
+      feedbackEl.textContent = 'Не то. Попробуй ещё!';
+      playTone(160, 0.18, 'sawtooth');
+    }
+
+    async function playTargetSound(){
+      const target = sounds.find(s=>s.id===correctId);
+      // try to play real audio file first
+      const a = audioCache[target.id];
+      try{
+        // if file failed to load, will throw on play in some browsers or not play; we catch and fallback
+        await a.play();
+      }catch(err){
+        // fallback to synthesized sound
+        synthFor(target.id);
+      }
+    }
+
+    function synthFor(id){
+      // Simple synthesized approximations for demo. Replace with real audio files for best result.
+      if(id==='cat') synthMeow();
+      else if(id==='dog') synthWoof();
+      else if(id==='piano') synthPiano();
+      else if(id==='trumpet') synthTrumpet();
+      else playTone(440,0.3);
+    }
+
+    // --- Simple WebAudio helpers ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq=440,duration=0.25,type='sine'){
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq;
+      o.connect(g); g.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.12, now+0.01);
+      g.gain.linearRampToValueAtTime(0.0001, now+duration);
+      o.start(now); o.stop(now+duration+0.02);
+    }
+
+    function synthMeow(){
+      // short rising syllable
+      const o = audioCtx.createOscillator(); const g=audioCtx.createGain();
+      o.type='sine'; o.frequency.setValueAtTime(400,audioCtx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(700,audioCtx.currentTime+0.25);
+      g.gain.setValueAtTime(0, audioCtx.currentTime);
+      g.gain.linearRampToValueAtTime(0.18,audioCtx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.6);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+0.7);
+    }
+    function synthWoof(){
+      // low short bark
+      playTone(120,0.12,'square');
+      setTimeout(()=>playTone(140,0.12,'square'),150);
+    }
+    function synthPiano(){
+      // short chord
+      playTone(440,0.18,'triangle');
+      setTimeout(()=>playTone(660,0.18,'triangle'),30);
+      setTimeout(()=>playTone(880,0.18,'triangle'),60);
+    }
+    function synthTrumpet(){
+      playTone(520,0.25,'sawtooth');
+      setTimeout(()=>playTone(660,0.15,'sine'),80);
+    }
+
+    // --- Hint and UI ---
+    hintBtn.addEventListener('click', ()=>{
+      if(usedHint) return;
+      usedHint = true;
+      hintText.textContent = 'Подсказка использована — правильная карта подсвечена на 1.5 секунды.';
+      const card = [...optionsEl.querySelectorAll('.card')].find(c=>c.dataset.id===correctId);
+      if(card){
+        card.classList.add('correct');
+        playTone(640,0.12);
+        setTimeout(()=>card.classList.remove('correct'),1500);
+      }
+    });
+
+    playBtn.addEventListener('click', ()=>{ playTargetSound(); });
+    nextBtn.addEventListener('click', ()=> startRound());
+
+    // Keyboard support
+    document.addEventListener('keydown', (e)=>{
+      if(e.code==='Space'){ e.preventDefault(); playTargetSound(); }
+      if(e.code==='ArrowRight' || e.code==='ArrowLeft'){
+        // move focus between cards
+        const cards = [...optionsEl.querySelectorAll('.card')];
+        if(!cards.length) return;
+        const idx = cards.indexOf(document.activeElement);
+        let next = 0;
+        if(e.code==='ArrowRight') next = (idx+1) % cards.length;
+        else next = (idx-1 + cards.length) % cards.length;
+        cards[next].focus();
+      }
+      if(e.code==='Enter'){
+        if(document.activeElement && document.activeElement.classList.contains('card')){
+          document.activeElement.click();
+        }
+      }
+    });
+
+    // Utility: shuffle
+    function shuffle(a){
+      for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+      return a;
+    }
+
+    // confetti (simple)
+    function burstConfetti(){
+      const canvas = document.getElementById('confettiCanvas');
+      canvas.width = innerWidth; canvas.height = innerHeight; const ctx = canvas.getContext('2d');
+      const pieces = [];
+      for(let i=0;i<90;i++){
+        pieces.push({x:innerWidth/2,y:200,vx:(Math.random()-0.5)*8,vy:Math.random()*-6-2,rot:Math.random()*360,vel:Math.random()*4+2,w:6+Math.random()*8,h:8+Math.random()*8,color:`hsl(${Math.random()*360},80%,60%)`});
+      }
+      let t=0; const raf = ()=>{
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        t++; pieces.forEach(p=>{
+          p.vy += 0.18; p.x += p.vx; p.y += p.vy; p.rot += p.vx*2;
+          ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+          ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+        });
+        if(t<140) requestAnimationFrame(raf); else ctx.clearRect(0,0,canvas.width,canvas.height);
+      };
+      raf();
+    }
+
+    // SVGs for icons (inline for offline use)
+    function svgCat(){
+      return `<svg viewBox="0 0 64 64" width="88" height="88" aria-hidden><g fill="#FFB74D"><circle cx="22" cy="22" r="5"/><circle cx="42" cy="22" r="5"/><path d="M32 8c-6 0-10 4-12 8-3 6-3 14 0 16 3 2 7 2 12 2s9 0 12-2c3-2 3-10 0-16-2-4-6-8-12-8z"/></g></svg>`;
+    }
+    function svgDog(){
+      return `<svg viewBox="0 0 64 64" width="88" height="88" aria-hidden><g fill="#90CAF9"><rect x="10" y="20" width="44" height="28" rx="6"/><circle cx="20" cy="18" r="6"/><circle cx="44" cy="18" r="6"/></g></svg>`;
+    }
+    function svgPiano(){
+      return `<svg viewBox="0 0 64 64" width="88" height="88" aria-hidden><g fill="#CE93D8"><rect x="6" y="22" width="52" height="18" rx="3"/><rect x="10" y="26" width="8" height="10" fill="#fff"/><rect x="20" y="26" width="6" height="10" fill="#fff"/><rect x="28" y="26" width="6" height="10" fill="#fff"/></g></svg>`;
+    }
+    function svgTrumpet(){
+      return `<svg viewBox="0 0 64 64" width="88" height="88" aria-hidden><g fill="#FFD54F"><rect x="8" y="26" width="34" height="8" rx="4"/><circle cx="46" cy="30" r="6"/><circle cx="54" cy="30" r="4"/></g></svg>`;
+    }
+
+    // 초기 запуск
+    startRound();
+
+    // Небольшая подсказка разработчику: чтобы использовать свои звуки, положите файлы в папку "sounds"
+    // с именами: cat.mp3, dog.mp3, piano.mp3, trumpet.mp3 или измените поле src в массиве sounds.
+
+  </script>
+</body>
+</html>

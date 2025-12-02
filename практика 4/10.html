@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Угадай инструмент — красиво и надёжно</title>
+<style>
+  :root{
+    --bg1: #FFFBF2;
+    --bg2: #FFF3E0;
+    --card: #FFFFFF;
+    --accent: #FF6B6B;
+    --accent-2: #06B6D4;
+    --muted: #6B7280;
+    --success: #10B981;
+    --danger: #EF4444;
+    --glass: rgba(255,255,255,0.6);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background: linear-gradient(180deg,var(--bg1),var(--bg2)); color:#0f1724}
+  .wrap{max-width:980px;margin:28px auto;padding:20px}
+  .card{background:linear-gradient(180deg,#ffffff, #fff9f6);border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(2,6,23,.08)}
+  header{display:flex;align-items:center;gap:16px}
+  h1{margin:0;font-size:22px}
+  .subtitle{color:var(--muted);font-size:13px}
+
+  .grid{display:grid;grid-template-columns:320px 1fr;gap:18px;margin-top:18px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  /* left controls */
+  .left{padding:12px}
+  .controls{display:flex;flex-direction:column;gap:10px}
+  .btn{background:var(--accent);color:white;border:0;padding:10px 12px;border-radius:12px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px rgba(255,106,106,0.12)}
+  .btn.ghost{background:transparent;border:2px solid rgba(15,23,36,0.06);color:var(--accent)}
+  .row{display:flex;gap:8px;align-items:center}
+  .small{font-size:13px;color:var(--muted)}
+
+  /* right: options */
+  .right{padding:12px}
+  .panel{display:flex;flex-direction:column;gap:12px}
+  .playRow{display:flex;gap:12px;align-items:center}
+  .bigPlay{width:120px;height:120px;border-radius:50%;background:linear-gradient(180deg,var(--accent),#f97316);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:28px;cursor:pointer;box-shadow:0 12px 30px rgba(249,115,22,.12)}
+  .bigPlay.paused{background:linear-gradient(180deg,#60a5fa,#06b6d4)}
+  .infoBox{flex:1;padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(6,182,212,0.06), rgba(249,115,22,0.03));display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .status{font-weight:800;font-size:16px}
+  .hint{font-size:13px;color:var(--muted)}
+
+  .options{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .cardOpt{width:150px;height:150px;background:linear-gradient(180deg,#fff,#fff7f3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:4px solid transparent;box-shadow:0 8px 20px rgba(2,6,23,.06);transition:transform .14s,box-shadow .14s,border-color .14s}
+  .cardOpt:hover{transform:translateY(-6px)}
+  .cardOpt.correct{border-color:var(--success);box-shadow:0 18px 40px rgba(16,185,129,0.12)}
+  .cardOpt.wrong{border-color:var(--danger);box-shadow:0 14px 36px rgba(239,68,68,0.12)}
+  .optLabel{margin-top:8px;font-weight:800}
+
+  .scoreRow{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+  .score{font-weight:900;color:var(--accent-2);font-size:20px}
+  .lives{color:var(--muted)}
+
+  /* confetti canvas */
+  canvas.confetti{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:9999}
+
+  /* micro animations */
+  .pulse{animation:pulse 800ms ease-out;}
+  @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="Угадай инструмент">
+      <header>
+        <div>
+          <h1>🎶 Угадай инструмент</h1>
+          <div class="subtitle">Послушай звук и выбери верную картинку. Подсказка и награды встроены.</div>
+        </div>
+        <div style="margin-left:auto" class="small">Автономно — работает офлайн</div>
+      </header>
+
+      <div class="grid">
+        <div class="left">
+          <div class="controls">
+            <button id="playBtn" class="btn">▶ Проиграть звук</button>
+            <div class="row"><button id="hintBtn" class="btn ghost">💡 Подсказка</button><div class="small">Показывает семейство инструмента</div></div>
+            <div class="row"><button id="skipBtn" class="btn ghost">⟳ Пропустить</button><div class="small">Следующий звук</div></div>
+            <div style="height:8px"></div>
+            <div class="small">Подстройки звука (тембр):</div>
+            <label class="small">Громкость <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+            <label class="small">Длина звука <input id="dur" type="range" min="0.15" max="1.2" step="0.05" value="0.5"></label>
+            <div style="height:6px"></div>
+            <div class="small">Подсказок осталось: <span id="hintsLeft">2</span></div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="panel">
+            <div class="playRow">
+              <div id="bigPlay" class="bigPlay" title="Проиграть/Пауза">▶</div>
+              <div class="infoBox">
+                <div class="status" id="promptText">Какой инструмент вы слышите?</div>
+                <div class="hint" id="hintText">Нажмите «Подсказка», чтобы получить подсказку.</div>
+              </div>
+            </div>
+
+            <div class="options" id="optionsArea">
+              <!-- options injected here -->
+            </div>
+
+            <div class="scoreRow">
+              <div class="score">Очки: <span id="score">0</span></div>
+              <div class="lives">Подсказки: <span id="hintsLeft2">2</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <canvas id="confetti" class="confetti"></canvas>
+  </div>
+
+<script>
+/* автономная игра «Угадай инструмент»
+   - встроенные SVG и WebAudio синтезы (надежно работают в браузере)
+   - подсказки, подсветка, конфетти и очки
+*/
+
+// --- инструменты (id, display name, family, svg icon, synth name) ---
+const INSTRUMENTS = [
+  { id:'piano', label:'Пианино', family:'Клавишные', svg: svgPiano(), synth:'piano' },
+  { id:'guitar', label:'Гитара', family:'Струнные', svg: svgGuitar(), synth:'guitar' },
+  { id:'violin', label:'Скрипка', family:'Струнные', svg: svgViolin(), synth:'violin' },
+  { id:'drum', label:'Барабаны', family:'Ударные', svg: svgDrum(), synth:'drum' },
+  { id:'trumpet', label:'Труба', family:'Духовые', svg: svgTrumpet(), synth:'trumpet' }
+];
+
+// game state
+let correct = null;
+let score = 0;
+let hints = 2;
+
+// DOM
+const optionsArea = document.getElementById('optionsArea');
+const playBtn = document.getElementById('playBtn');
+const bigPlay = document.getElementById('bigPlay');
+const hintBtn = document.getElementById('hintBtn');
+const skipBtn = document.getElementById('skipBtn');
+const promptText = document.getElementById('promptText');
+const hintText = document.getElementById('hintText');
+const scoreEl = document.getElementById('score');
+const hintsLeft = document.getElementById('hintsLeft');
+const hintsLeft2 = document.getElementById('hintsLeft2');
+const volEl = document.getElementById('vol');
+const durEl = document.getElementById('dur');
+const confettiCanvas = document.getElementById('confetti');
+
+hintsLeft.textContent = hints;
+hintsLeft2.textContent = hints;
+
+// audio context
+let audioCtx = null;
+let masterGain = null;
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(!masterGain) { masterGain = audioCtx.createGain(); masterGain.gain.value = Number(volEl.value); masterGain.connect(audioCtx.destination); }
+}
+
+// Utility: shuffle
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a; }
+
+// Render 3 options (random)
+function renderOptions(){
+  optionsArea.innerHTML = '';
+  const pool = shuffle([...INSTRUMENTS]).slice(0,3); // 3 choices
+  // ensure correct is among them
+  if(!pool.find(p=>p.id===correct.id)){
+    pool[ Math.floor(Math.random()*3) ] = correct;
+  }
+  pool.forEach(inst=>{
+    const card = document.createElement('button');
+    card.className = 'cardOpt';
+    card.setAttribute('data-id', inst.id);
+    card.innerHTML = `${inst.svg}<div class="optLabel">${inst.label}</div>`;
+    card.addEventListener('click', ()=> chooseInstrument(inst, card));
+    optionsArea.appendChild(card);
+  });
+}
+
+// pick new sound
+function newRound(){
+  // pick correct instrument randomly
+  correct = INSTRUMENTS[Math.floor(Math.random()*INSTRUMENTS.length)];
+  promptText.textContent = 'Какой инструмент вы слышите?';
+  hintText.textContent = 'Нажмите «Подсказка», чтобы получить подсказку.';
+  renderOptions();
+  // autoplay first sound automatically? we require user gesture; so just highlight big play
+  bigPlayAnimation();
+}
+
+// Visual micro animation
+function bigPlayAnimation(){
+  bigPlay.classList.add('pulse');
+  setTimeout(()=> bigPlay.classList.remove('pulse'),400);
+}
+
+// choose handler
+function chooseInstrument(inst, el){
+  // disable clicking while processing
+  Array.from(document.querySelectorAll('.cardOpt')).forEach(b=>b.disabled=true);
+
+  if(inst.id === correct.id){
+    el.classList.add('correct');
+    promptText.textContent = `✅ Правильно — это ${inst.label}!`;
+    score += 10;
+    scoreEl.textContent = score;
+    playReward();
+    fireConfetti();
+    setTimeout(()=> newRound(), 1300);
+  } else {
+    el.classList.add('wrong');
+    promptText.textContent = `❌ Неправильно — это был(а) ${correct.label}.`;
+    score = Math.max(0, score - 3);
+    scoreEl.textContent = score;
+    playNegative();
+    // show correct briefly
+    setTimeout(()=> {
+      // highlight correct card
+      const correctBtn = Array.from(document.querySelectorAll('.cardOpt')).find(b => b.dataset.id === correct.id);
+      if(correctBtn){ correctBtn.classList.add('correct'); }
+      setTimeout(()=> newRound(), 1200);
+    }, 600);
+  }
+}
+
+// hint
+hintBtn.addEventListener('click', ()=>{
+  if(hints <= 0) return;
+  hints--;
+  hintsLeft.textContent = hints;
+  hintsLeft2.textContent = hints;
+  hintText.textContent = `Подсказка: ${correct.family}`;
+  // flash family hint visually: highlight one correct option if present
+  const opt = Array.from(document.querySelectorAll('.cardOpt')).find(b=>{
+    const id = b.dataset.id;
+    const inst = INSTRUMENTS.find(i=>i.id===id);
+    return inst && inst.family === correct.family;
+  });
+  if(opt){ opt.style.borderColor = 'rgba(6,182,212,0.6)'; setTimeout(()=> opt.style.borderColor = '', 1200); }
+});
+
+// skip
+skipBtn.addEventListener('click', ()=> newRound());
+
+// play sound
+playBtn.addEventListener('click', ()=> { playCurrentSound(); });
+bigPlay.addEventListener('click', ()=> { playCurrentSound(); bigPlay.classList.toggle('paused'); bigPlay.textContent = bigPlay.classList.contains('paused') ? '▮▮' : '▶'; });
+
+// ensure audio resume on gesture
+['click','keydown','touchstart'].forEach(evt=> window.addEventListener(evt, ()=> { if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }, {once:true}));
+
+function playCurrentSound(){
+  ensureAudio();
+  // slight user feedback
+  bigPlay.style.transform = 'scale(0.98)';
+  setTimeout(()=> bigPlay.style.transform = '', 120);
+  // play according to synth
+  playInstrumentSynth(correct.synth, Number(durEl.value));
+}
+
+// synth implementations (simple, child-friendly approximations)
+function playInstrumentSynth(name, duration=0.5){
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const vol = Number(volEl.value) || 0.8;
+
+  if(name === 'piano'){
+    // short chord-like strike
+    const freqs = [261.63, 329.63, 392.00]; // C4,E4,G4
+    freqs.forEach((f,idx)=>{
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = idx===0? 'triangle':'sine';
+      o.frequency.value = f * (1 + Math.random()*0.02);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.25*vol, now + 0.01 + idx*0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.05);
+      o.connect(g); g.connect(masterGain);
+      o.start(now + idx*0.01); o.stop(now + duration + 0.05);
+    });
+    return;
+  }
+
+  if(name === 'guitar'){
+    // plucked sound (filtered noise + sine)
+    const freq = 196; // G3
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq * (1 + Math.random()*0.03);
+    const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1400;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.28*vol, now+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.05);
+    o.connect(filter); filter.connect(g); g.connect(masterGain);
+    o.start(now); o.stop(now + duration + 0.05);
+
+    // tiny click
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.02, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1)*Math.exp(-10*i/data.length);
+    const src = audioCtx.createBufferSource(); src.buffer = buf; const g2 = audioCtx.createGain(); g2.gain.value = 0.25*vol;
+    src.connect(g2); g2.connect(masterGain); src.start(now);
+    return;
+  }
+
+  if(name === 'violin'){
+    // sustained bowed tone: sawtooth + slow attack
+    const freq = 440; // A4
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = freq * (1 + (Math.random()-0.5)*0.02);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.22*vol, now + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.05);
+    const band = audioCtx.createBiquadFilter(); band.type='bandpass'; band.frequency.value = freq*1.1; band.Q.value = 1.4;
+    o.connect(band); band.connect(g); g.connect(masterGain);
+    o.start(now); o.stop(now + duration + 0.05);
+    return;
+  }
+
+  if(name === 'drum'){
+    // percussive punch
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(100, now);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.9*vol, now+0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+0.25);
+    o.connect(g); g.connect(masterGain); o.start(now); o.stop(now+0.26);
+    // add click
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.02, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*Math.exp(-40*i/d.length);
+    const s = audioCtx.createBufferSource(); s.buffer = buf; const g2 = audioCtx.createGain(); g2.gain.value = 0.6*vol;
+    s.connect(g2); g2.connect(masterGain); s.start(now+0.01);
+    return;
+  }
+
+  if(name === 'trumpet'){
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 660 * (1 + (Math.random()-0.5)*0.02);
+    const band = audioCtx.createBiquadFilter(); band.type='bandpass'; band.frequency.value = 880; band.Q.value = 1.2;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.5*vol, now+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+duration+0.05);
+    o.connect(band); band.connect(g); g.connect(masterGain);
+    o.start(now); o.stop(now + duration + 0.05);
+    return;
+  }
+}
+
+// feedback sounds
+function playReward(){
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const seq = [880,1046,1318]; // A5,C6,E6 arpeggio
+  seq.forEach((f,i)=>{
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.001, now + i*0.12);
+    g.gain.linearRampToValueAtTime(0.22*Number(volEl.value), now + i*0.12 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, now + i*0.12 + 0.22);
+    o.connect(g); g.connect(masterGain);
+    o.start(now + i*0.12); o.stop(now + i*0.12 + 0.24);
+  });
+}
+function playNegative(){
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+  o.type='sawtooth'; o.frequency.value = 200;
+  g.gain.setValueAtTime(0.001, now); g.gain.linearRampToValueAtTime(0.25*Number(volEl.value), now+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, now+0.35);
+  o.connect(g); g.connect(masterGain); o.start(now); o.stop(now+0.35);
+}
+
+// confetti
+function fireConfetti(){
+  const canvas = confettiCanvas;
+  canvas.width = innerWidth; canvas.height = innerHeight;
+  const ctx = canvas.getContext('2d');
+  const parts = [];
+  for(let i=0;i<120;i++){
+    parts.push({x:Math.random()*canvas.width,y:Math.random()*-200,vx:(Math.random()-0.5)*8,vy:Math.random()*6+2,size:6+Math.random()*8,color:`hsl(${Math.random()*360},70%,60%)`,rot:Math.random()*360});
+  }
+  let t=0;
+  function frame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    t++;
+    for(const p of parts){
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vx*0.3;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180); ctx.fillStyle=p.color;
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size); ctx.restore();
+      if(p.y>canvas.height+50){ p.y=-20; p.x=Math.random()*canvas.width; }
+    }
+    if(t<260) requestAnimationFrame(frame); else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  frame();
+}
+
+// SVG icons
+function svgPiano(){ return `<svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="6" width="22" height="12" rx="1.5" fill="#FDF2E9"/><rect x="3" y="8" width="3" height="8" fill="#0F1724"/><rect x="7" y="8" width="3" height="8" fill="#0F1724"/><rect x="11" y="8" width="3" height="8" fill="#0F1724"/><rect x="15" y="8" width="3" height="8" fill="#0F1724"/></svg>`;}
+function svgGuitar(){ return `<svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20c0-2 2-6 6-6 1.5 0 2.5.8 4 2.2l4-4c.6-.6 1.6-.6 2.2 0 .6.6.6 1.6 0 2.2l-4 4C15.2 19.5 14.5 20 12 20c-3.7 0-6 2-8 0z" fill="#FFF7ED"/><circle cx="10" cy="14" r="1.6" fill="#0F1724"/></svg>`;}
+function svgViolin(){ return `<svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4c2-1 5-1 7 1s1 5-1 7l-1 1-6 2-1-1C3 11 4 6 7 4z" fill="#FFF7F3"/><rect x="12" y="2" width="1.6" height="6" rx="0.5" fill="#0F1724"/></svg>`;}
+function svgDrum(){ return `<svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="6" rx="8" ry="2" fill="#FFFBEA"/><rect x="4" y="6" width="16" height="8" rx="1" fill="#FFFBEA"/><rect x="3" y="9" width="18" height="1" fill="#0F1724"/></svg>`;}
+function svgTrumpet(){ return `<svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h9l6-3v6l-6-3H2z" fill="#FFF7ED"/><circle cx="18" cy="10" r="1.8" fill="#0F1724"/></svg>`;}
+
+// pick a correct and show options
+function startGame(){
+  score = 0; hints = 2;
+  scoreEl.textContent = score;
+  hintsLeft.textContent = hints; hintsLeft2.textContent = hints;
+  nextQuestion();
+}
+
+function nextQuestion(){
+  // pick new correct instrument
+  correct = INSTRUMENTS[Math.floor(Math.random()*INSTRUMENTS.length)];
+  // render options (3 random including correct)
+  renderOptions();
+  // reset prompt
+  promptText.textContent = 'Какой инструмент вы слышите?';
+  hintText.textContent = 'Нажмите «Подсказка», чтобы узнать семейство инструмента.';
+  // auto-enable play
+  // (do not autoplay sound to avoid browser block; user presses play)
+}
+
+// controls wiring
+playBtn.addEventListener('click', ()=> { ensureAudio(); playInstrumentSynth(correct.synth, Number(durEl.value)); });
+bigPlay.addEventListener('click', ()=> { ensureAudio(); playInstrumentSynth(correct.synth, Number(durEl.value)); bigPlay.classList.add('pulse'); setTimeout(()=>bigPlay.classList.remove('pulse'),300); });
+
+volEl.addEventListener('input', ()=>{ if(masterGain) masterGain.gain.setValueAtTime(Number(volEl.value), audioCtx ? audioCtx.currentTime : 0); });
+durEl.addEventListener('input', ()=>{ /* value used on playback */ });
+
+// initial start
+startGame();
+
+// Accessibility: keyboard shortcuts
+document.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ e.preventDefault(); ensureAudio(); playInstrumentSynth(correct.synth, Number(durEl.value)); }
+  if(['1','2','3'].includes(e.key)){
+    const idx = Number(e.key) - 1;
+    const btns = document.querySelectorAll('.cardOpt');
+    if(btns[idx]) btns[idx].click();
+  }
+});
+
+</script>
+</body>
+</html>

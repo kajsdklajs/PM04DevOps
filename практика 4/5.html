@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Интерактивная сказка — с озвучкой</title>
+  <style>
+    :root{--bg:#FFF8F0;--panel:#fff;--accent:#FF6B6B;--muted:#6b6b6b}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:var(--bg);color:#1b1b1b}
+    .book{max-width:980px;margin:28px auto;padding:18px;background:var(--panel);border-radius:14px;box-shadow:0 8px 30px rgba(2,6,23,.08)}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    .controls{margin-left:auto;display:flex;gap:8px}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .page{display:flex;gap:18px;align-items:stretch;margin-top:16px}
+    .illustration{flex:1;border-radius:12px;background:linear-gradient(180deg,#fff,#fff7f3);padding:12px;position:relative}
+    .text{flex:1;display:flex;flex-direction:column;gap:12px;padding:12px}
+    .speechControls{display:flex;gap:8px;align-items:center}
+    .obj{position:absolute;cursor:pointer;opacity:0.98}
+    .obj:hover{transform:translateY(-6px);transition:transform .12s}
+    .caption{font-weight:700}
+    .footer{margin-top:14px;color:var(--muted);font-size:13px}
+    .pageNumber{opacity:.7}
+    .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  </style>
+</head>
+<body>
+  <div class="book" role="application" aria-label="Интерактивная сказка">
+    <header>
+      <div>
+        <h1>Интерактивная сказка</h1>
+        <div class="small muted">Нажми '▶ Озвучить' чтобы услышать текст.</div>
+      </div>
+      <div class="controls">
+        <button id="prevBtn">← Назад</button>
+        <button id="playNarration">▶ Озвучить</button>
+        <button id="pauseNarration">⏸ Пауза</button>
+        <button id="nextBtn">Вперёд →</button>
+      </div>
+    </header>
+
+    <div class="page" id="page">
+      <div class="illustration" id="illustration" aria-hidden="false">
+        <!-- интерактивные объекты вставляются скриптом -->
+      </div>
+
+      <div class="text">
+        <div>
+          <div class="caption" id="title">Заголовок</div>
+          <div id="bodyText">Текст страницы...</div>
+        </div>
+
+        <div class="speechControls">
+          <label for="voiceSelect">Голос:</label>
+          <select id="voiceSelect"></select>
+          <label for="rate">Скорость</label>
+          <input id="rate" type="range" min="0.6" max="1.4" step="0.1" value="1">
+        </div>
+    </div>
+
+    <div class="footer">Страница <span id="pageNum">1</span>/<span id="pageCount">3</span></div>
+
+  </div>
+
+  <script>
+    /*
+      Интерактивная сказка — 3 страницы
+      - Использует Web Speech API для озвучки (браузерный TTS). Это не профессиональная запись диктора,
+        но даёт возможность читать вслух прямо в браузере.
+      - В коде есть возможность подключить свои аудиофайлы (URL или base64). ВНИМАНИЕ: я не могу сам
+        вставлять чужие профессиональные записи нарушающие авторские права. Если у вас есть легальная
+        запись (файл mp3/wav), вы можете загрузить его и указать URL или base64 — тогда я покажу, как
+        встроить в этот файл.
+      - На каждой странице есть объекты, по клику на которые воспроизводятся короткие звуки (например,
+        звук птицы, звон колокольчика, или мелодический фрагмент).
+    */
+
+    // Страницы: текст, svg-иллюстрация (прямо в коде) и интерактивные объекты
+    const pages = [
+      {
+        id:1,
+        title: 'Лесное утро',
+        text: 'Проснулось солнышко и разбудило лес. Птички запели — раз, два, три!',
+        // objects: {id, x,y,width,height, ariaLabel, sound: {type:'synth'|'url', src:'...'}, hint}
+        objects: [
+          { id:'bird', x:60, y:40, w:80, h:60, aria:'Птичка', sound:{type:'synth', name:'bird'}, hint:'Почик-чирик!'},
+          { id:'sun', x:220, y:20, w:120, h:120, aria:'Солнышко', sound:{type:'synth', name:'bell'}, hint:'Звонкое доброе приветствие'}
+        ]
+      },
+      {
+        id:2,
+        title: 'Встреча у речки',
+        text: 'У реки встретились зайчик и ёж. Они слушали тихую плескоту воды.',
+        objects: [
+          { id:'hare', x:40, y:80, w:120, h:90, aria:'Зайчик', sound:{type:'synth', name:'hop'}, hint:'Прыг-скок!'},
+          { id:'water', x:240, y:120, w:220, h:80, aria:'Река', sound:{type:'synth', name:'water'}, hint:'Плеск-плеск'}
+        ]
+      },
+      {
+        id:3,
+        title: 'Вечерний дом',
+        text: 'День закончился, и в домике зажглись лампы. Тепло и уютно — пора спать.',
+        objects: [
+          { id:'lamp', x:80, y:60, w:80, h:120, aria:'Лампа', sound:{type:'synth', name:'chime'}, hint:'Тихий звон'},
+          { id:'door', x:260, y:90, w:100, h:130, aria:'Дверь', sound:{type:'synth', name:'knock'}, hint:'Тук-тук'}
+        ]
+      }
+    ];
+
+    const pageCount = pages.length; document.getElementById('pageCount').textContent = pageCount;
+    let currentPage = 0;
+
+    // audio placeholders: you can replace URL fields with your own mp3/wav links or base64 data (without data: prefix)
+    const audioAssets = {
+      // Example: bird: {type:'url', src:'https://example.com/bird.mp3'}
+      // For demo we'll use short synthesized fragments via WebAudio
+    };
+
+    // WebSpeech setup
+    const synth = window.speechSynthesis;
+    let voices = [];
+    const voiceSelect = document.getElementById('voiceSelect');
+    function populateVoices(){ voices = synth.getVoices().filter(v=>v.lang.startsWith('ru') || v.lang.startsWith('en')); voiceSelect.innerHTML = '';
+      voices.forEach((v,i)=>{ const opt = document.createElement('option'); opt.value=i; opt.textContent = `${v.name} — ${v.lang}`; voiceSelect.appendChild(opt); });
+    }
+    if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged = populateVoices; populateVoices();
+
+    const rateEl = document.getElementById('rate');
+
+    // WebAudio for interactive object sounds
+    let audioCtx = null;
+    function ensureAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+    function playSynth(name){ ensureAudioCtx(); if(name==='bird'){ // short chirp
+        playTone(audioCtx,1400,0.06,'sine'); setTimeout(()=>playTone(audioCtx,2200,0.04,'sine'),80);
+      } else if(name==='bell'){ playBell(audioCtx); }
+      else if(name==='hop'){ playTone(audioCtx,280,0.08,'triangle'); }
+      else if(name==='water'){ playWavelet(audioCtx); }
+      else if(name==='chime'){ playBell(audioCtx,0.12); }
+      else if(name==='knock'){ playKnock(audioCtx); }
+    }
+
+    function playTone(ctx,f,d,type){ const o=ctx.createOscillator(); const g=ctx.createGain(); o.type=type; o.frequency.value=f; o.connect(g); g.connect(ctx.destination); const now=ctx.currentTime; g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.18,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+d); o.start(now); o.stop(now+d+0.02); }
+    function playBell(ctx,d=0.18){ const now=ctx.currentTime; for(let i=0;i<3;i++){ playTone(ctx,880*(1+i*0.6),d,'sine'); } }
+    function playWavelet(ctx){ const now=ctx.currentTime; const buffer = ctx.createBuffer(1,ctx.sampleRate*0.5,ctx.sampleRate); const data = buffer.getChannelData(0); for(let i=0;i<data.length;i++) data[i]=Math.sin(i/10)*Math.exp(-3*i/data.length)*(Math.random()*0.6); const src=ctx.createBufferSource(); src.buffer=buffer; src.connect(ctx.destination); src.start(now); }
+    function playKnock(ctx){ const now=ctx.currentTime; const buffer = ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate); const d=buffer.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-30*i/d.length); const s=ctx.createBufferSource(); s.buffer=buffer; const g=ctx.createGain(); g.gain.value=0.9; s.connect(g); g.connect(ctx.destination); s.start(now); }
+
+    // render current page
+    function renderPage(){ const p = pages[currentPage]; document.getElementById('pageNum').textContent = currentPage+1; document.getElementById('title').textContent = p.title; document.getElementById('bodyText').textContent = p.text;
+      const ill = document.getElementById('illustration'); ill.innerHTML = '';
+      // simple background svg
+      const svgNS = 'http://www.w3.org/2000/svg'; const svg = document.createElementNS(svgNS,'svg'); svg.setAttribute('viewBox','0 0 480 320'); svg.setAttribute('width','100%'); svg.setAttribute('height','320'); svg.setAttribute('aria-hidden','true');
+      const rect = document.createElementNS(svgNS,'rect'); rect.setAttribute('width','100%'); rect.setAttribute('height','100%'); rect.setAttribute('fill','#fff7f3'); svg.appendChild(rect);
+      // draw a naive scene (sun/trees/house etc depending on page)
+      if(p.id===1){ // forest morning
+        const g = document.createElementNS(svgNS,'g'); g.innerHTML = `<circle cx="360" cy="60" r="40" fill="#FFD166"/><rect x="10" y="200" width="460" height="110" fill="#E6F4EA"/><g fill="#7FB069"><circle cx="80" cy="170" r="40"/><circle cx="140" cy="155" r="50"/><circle cx="200" cy="165" r="45"/></g>`;
+        svg.appendChild(g);
+      } else if(p.id===2){ const g = document.createElementNS(svgNS,'g'); g.innerHTML = `<rect x="10" y="200" width="460" height="110" fill="#E6F4EA"/><ellipse cx="360" cy="220" rx="120" ry="50" fill="#BEE3F8"/><g fill="#7FB069"><circle cx="60" cy="170" r="40"/></g>`; svg.appendChild(g);
+      } else { const g = document.createElementNS(svgNS,'g'); g.innerHTML = `<rect x="10" y="200" width="460" height="110" fill="#E6F4EA"/><rect x="60" y="110" width="120" height="90" rx="10" fill="#FFDAB9"/><rect x="200" y="130" width="80" height="70" rx="8" fill="#FFE8A1"/>`; svg.appendChild(g); }
+
+      ill.appendChild(svg);
+
+      // place interactive objects as absolute elements over svg using percentages
+      p.objects.forEach(obj=>{
+        const el = document.createElement('button'); el.className='obj'; el.style.left = obj.x + 'px'; el.style.top = obj.y + 'px'; el.style.width = obj.w + 'px'; el.style.height = obj.h + 'px'; el.setAttribute('aria-label', obj.aria);
+        el.innerHTML = `<span class="visually-hidden">${obj.aria}</span>`;
+        el.addEventListener('click', async ()=>{
+          // play either URL audio if provided, or synth
+          if(obj.sound.type==='url'){
+            await playUrlSound(obj.sound.src);
+          } else { // synth
+            playSynth(obj.sound.name);
+          }
+        });
+        // optional tooltip/hint on longpress
+        el.title = obj.hint || '';
+        ill.appendChild(el);
+      });
+    }
+
+    async function playUrlSound(src){ ensureAudioCtx(); try{
+        let audio = new Audio(src);
+        await audio.play();
+      }catch(e){ console.warn('Ошибка воспроизведения URL-аудио',e); }
+    }
+
+    // narration controls
+    let utter = null;
+    function speakCurrent(){ if(!('speechSynthesis' in window)){ alert('TTS не поддерживается в этом браузере'); return; }
+      const p = pages[currentPage]; if(utter) speechSynthesis.cancel(); utter = new SpeechSynthesisUtterance(p.text);
+      const sel = voiceSelect.value; if(voices[sel]) utter.voice = voices[sel]; utter.rate = Number(rateEl.value);
+      speechSynthesis.speak(utter);
+    }
+    function pauseSpeech(){ if(speechSynthesis.speaking) speechSynthesis.pause(); }
+
+    document.getElementById('playNarration').addEventListener('click', ()=>{ speakCurrent(); });
+    document.getElementById('pauseNarration').addEventListener('click', ()=>{ pauseSpeech(); });
+    document.getElementById('nextBtn').addEventListener('click', ()=>{ if(currentPage<pages.length-1){ currentPage++; renderPage(); } });
+    document.getElementById('prevBtn').addEventListener('click', ()=>{ if(currentPage>0){ currentPage--; renderPage(); } });
+
+    // keyboard navigation
+    document.addEventListener('keydown',(e)=>{
+      if(e.key==='ArrowRight') document.getElementById('nextBtn').click();
+      if(e.key==='ArrowLeft') document.getElementById('prevBtn').click();
+      if(e.code==='Space'){ e.preventDefault(); document.getElementById('playNarration').click(); }
+    });
+
+    // initial render
+    renderPage();
+  </script>
+</body>
+</html>

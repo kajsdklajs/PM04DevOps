@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музыкальная раскраска</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #ffccf9, #b5deff);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0 #ffd166;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #06d6a0;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .color-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid white;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .color-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .color-btn.active {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 4px #ffd166, 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .canvas-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+            overflow: auto;
+        }
+        
+        #coloring-canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: white;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23000000" opacity="0.5"/></svg>') 12 12, auto;
+        }
+        
+        .tools {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .tool-btn {
+            padding: 10px 20px;
+            background-color: #118ab2;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background-color: #0a6c8f;
+            transform: translateY(-2px);
+        }
+        
+        .images-selector {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .image-option {
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .image-option:hover {
+            transform: scale(1.05);
+        }
+        
+        .image-option.active {
+            border-color: #ff6b6b;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .image-option img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .instructions {
+            background-color: #ffd166;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .color-btn {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .image-option {
+                width: 80px;
+                height: 80px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Музыкальная Раскраска 🎵</h1>
+        <p class="subtitle">Раскрашивай картинки и слушай веселые звуки!</p>
+        
+        <div class="images-selector">
+            <div class="image-option active" data-image="butterfly">
+                <svg viewBox="0 0 100 100">
+                    <path d="M50,20 C60,10 80,15 80,30 C80,45 65,50 50,50 C35,50 20,45 20,30 C20,15 40,10 50,20 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M30,40 C20,50 25,70 40,70 C50,70 50,60 50,50" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M70,40 C80,50 75,70 60,70 C50,70 50,60 50,50" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,50 L50,80" stroke="#333" stroke-width="2"/>
+                    <circle cx="45" cy="25" r="2" fill="#333"/>
+                    <circle cx="55" cy="25" r="2" fill="#333"/>
+                </svg>
+            </div>
+            <div class="image-option" data-image="castle">
+                <svg viewBox="0 0 100 100">
+                    <rect x="20" y="40" width="60" height="40" fill="none" stroke="#333" stroke-width="2"/>
+                    <rect x="30" y="50" width="10" height="30" fill="none" stroke="#333" stroke-width="2"/>
+                    <rect x="60" y="50" width="10" height="30" fill="none" stroke="#333" stroke-width="2"/>
+                    <polygon points="20,40 50,20 80,40" fill="none" stroke="#333" stroke-width="2"/>
+                    <rect x="40" y="60" width="20" height="20" fill="none" stroke="#333" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="image-option" data-image="flower">
+                <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="10" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,40 C55,30 65,30 70,40 C75,50 70,60 60,60 C50,60 45,50 50,40 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,40 C45,30 35,30 30,40 C25,50 30,60 40,60 C50,60 55,50 50,40 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,60 C55,70 65,70 70,60 C75,50 70,40 60,40 C50,40 45,50 50,60 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,60 C45,70 35,70 30,60 C25,50 30,40 40,40 C50,40 55,50 50,60 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M50,30 L50,10 M50,90 L50,70 M70,50 L90,50 M10,50 L30,50" stroke="#333" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="image-option" data-image="fish">
+                <svg viewBox="0 0 100 100">
+                    <path d="M20,50 C30,30 70,30 80,50 C70,70 30,70 20,50 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M80,50 L95,45 L95,55 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <circle cx="35" cy="45" r="3" fill="#333"/>
+                    <path d="M25,50 Q30,55 35,50" fill="none" stroke="#333" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="coloring-canvas" width="800" height="500"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="color-btn active" style="background-color: #ff6b6b;" data-color="#ff6b6b" data-sound="C4"></div>
+            <div class="color-btn" style="background-color: #ffd166;" data-color="#ffd166" data-sound="D4"></div>
+            <div class="color-btn" style="background-color: #06d6a0;" data-color="#06d6a0" data-sound="E4"></div>
+            <div class="color-btn" style="background-color: #118ab2;" data-color="#118ab2" data-sound="F4"></div>
+            <div class="color-btn" style="background-color: #073b4c;" data-color="#073b4c" data-sound="G4"></div>
+            <div class="color-btn" style="background-color: #9b5de5;" data-color="#9b5de5" data-sound="A4"></div>
+            <div class="color-btn" style="background-color: #f15bb5;" data-color="#f15bb5" data-sound="B4"></div>
+            <div class="color-btn" style="background-color: #00bbf9;" data-color="#00bbf9" data-sound="C5"></div>
+        </div>
+        
+        <div class="tools">
+            <button class="tool-btn" id="clear-btn">Очистить</button>
+            <button class="tool-btn" id="save-btn">Сохранить</button>
+            <button class="tool-btn" id="music-toggle">Включить музыку</button>
+        </div>
+        
+        <div class="instructions">
+            <p>🎨 Выбери картинку для раскрашивания</p>
+            <p>🎵 Нажимай на цвета, чтобы услышать разные звуки</p>
+            <p>🖌️ Кликай и перетаскивай мышку, чтобы раскрашивать</p>
+            <p>✨ Нажми "Очистить", чтобы начать заново</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('coloring-canvas');
+            const ctx = canvas.getContext('2d');
+            const colorButtons = document.querySelectorAll('.color-btn');
+            const imageOptions = document.querySelectorAll('.image-option');
+            const clearBtn = document.getElementById('clear-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const musicToggle = document.getElementById('music-toggle');
+            
+            let currentColor = '#ff6b6b';
+            let isDrawing = false;
+            let currentImage = 'butterfly';
+            let musicEnabled = false;
+            
+            // Создаем аудиоконтекст и осцилляторы для звуков
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let oscillators = {};
+            
+            // Инициализация холста
+            function initCanvas() {
+                // Очищаем холст
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Рисуем выбранное изображение
+                drawOutline(currentImage);
+            }
+            
+            // Рисуем контуры изображений
+            function drawOutline(imageType) {
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                
+                switch(imageType) {
+                    case 'butterfly':
+                        // Тело бабочки
+                        ctx.beginPath();
+                        ctx.moveTo(400, 250);
+                        ctx.bezierCurveTo(450, 200, 550, 200, 600, 250);
+                        ctx.bezierCurveTo(550, 300, 450, 300, 400, 250);
+                        ctx.stroke();
+                        
+                        // Левое крыло
+                        ctx.beginPath();
+                        ctx.moveTo(400, 250);
+                        ctx.bezierCurveTo(350, 200, 300, 250, 350, 350);
+                        ctx.bezierCurveTo(400, 320, 400, 280, 400, 250);
+                        ctx.stroke();
+                        
+                        // Правое крыло
+                        ctx.beginPath();
+                        ctx.moveTo(600, 250);
+                        ctx.bezierCurveTo(650, 200, 700, 250, 650, 350);
+                        ctx.bezierCurveTo(600, 320, 600, 280, 600, 250);
+                        ctx.stroke();
+                        
+                        // Усики
+                        ctx.beginPath();
+                        ctx.moveTo(400, 250);
+                        ctx.lineTo(380, 200);
+                        ctx.moveTo(600, 250);
+                        ctx.lineTo(620, 200);
+                        ctx.stroke();
+                        
+                        // Глазки
+                        ctx.beginPath();
+                        ctx.arc(450, 230, 5, 0, Math.PI * 2);
+                        ctx.arc(550, 230, 5, 0, Math.PI * 2);
+                        ctx.stroke();
+                        break;
+                        
+                    case 'castle':
+                        // Основа замка
+                        ctx.beginPath();
+                        ctx.rect(300, 300, 400, 200);
+                        ctx.stroke();
+                        
+                        // Башни
+                        ctx.beginPath();
+                        ctx.rect(250, 250, 100, 250);
+                        ctx.rect(650, 250, 100, 250);
+                        ctx.stroke();
+                        
+                        // Крыши башен
+                        ctx.beginPath();
+                        ctx.moveTo(250, 250);
+                        ctx.lineTo(300, 200);
+                        ctx.lineTo(350, 250);
+                        ctx.moveTo(650, 250);
+                        ctx.lineTo(700, 200);
+                        ctx.lineTo(750, 250);
+                        ctx.stroke();
+                        
+                        // Ворота
+                        ctx.beginPath();
+                        ctx.rect(450, 350, 100, 150);
+                        ctx.stroke();
+                        
+                        // Окна
+                        ctx.beginPath();
+                        ctx.rect(330, 330, 40, 40);
+                        ctx.rect(530, 330, 40, 40);
+                        ctx.stroke();
+                        break;
+                        
+                    case 'flower':
+                        // Стебель
+                        ctx.beginPath();
+                        ctx.moveTo(500, 500);
+                        ctx.lineTo(500, 350);
+                        ctx.stroke();
+                        
+                        // Листья
+                        ctx.beginPath();
+                        ctx.moveTo(500, 450);
+                        ctx.quadraticCurveTo(550, 430, 550, 400);
+                        ctx.moveTo(500, 420);
+                        ctx.quadraticCurveTo(450, 410, 440, 380);
+                        ctx.stroke();
+                        
+                        // Лепестки
+                        ctx.beginPath();
+                        ctx.arc(500, 300, 80, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        ctx.beginPath();
+                        ctx.arc(500, 300, 60, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Центр цветка
+                        ctx.beginPath();
+                        ctx.arc(500, 300, 20, 0, Math.PI * 2);
+                        ctx.stroke();
+                        break;
+                        
+                    case 'fish':
+                        // Тело рыбы
+                        ctx.beginPath();
+                        ctx.moveTo(300, 250);
+                        ctx.bezierCurveTo(500, 200, 600, 200, 700, 250);
+                        ctx.bezierCurveTo(600, 300, 500, 300, 300, 250);
+                        ctx.stroke();
+                        
+                        // Хвост
+                        ctx.beginPath();
+                        ctx.moveTo(300, 250);
+                        ctx.lineTo(250, 200);
+                        ctx.lineTo(250, 300);
+                        ctx.closePath();
+                        ctx.stroke();
+                        
+                        // Глаз
+                        ctx.beginPath();
+                        ctx.arc(650, 240, 10, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Плавник
+                        ctx.beginPath();
+                        ctx.moveTo(500, 230);
+                        ctx.lineTo(500, 180);
+                        ctx.lineTo(550, 230);
+                        ctx.stroke();
+                        break;
+                }
+            }
+            
+            // Воспроизведение звука при выборе цвета
+            function playSound(note) {
+                if (!musicEnabled) return;
+                
+                // Частоты для нот (C4, D4, E4, F4, G4, A4, B4, C5)
+                const frequencies = {
+                    'C4': 261.63,
+                    'D4': 293.66,
+                    'E4': 329.63,
+                    'F4': 349.23,
+                    'G4': 392.00,
+                    'A4': 440.00,
+                    'B4': 493.88,
+                    'C5': 523.25
+                };
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.value = frequencies[note];
+                
+                gainNode.gain.value = 0.3;
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 1);
+            }
+            
+            // Обработчики событий для цветных кнопок
+            colorButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Убираем активный класс со всех кнопок
+                    colorButtons.forEach(btn => btn.classList.remove('active'));
+                    // Добавляем активный класс к текущей кнопке
+                    this.classList.add('active');
+                    // Устанавливаем текущий цвет
+                    currentColor = this.getAttribute('data-color');
+                    // Воспроизводим звук
+                    playSound(this.getAttribute('data-sound'));
+                });
+            });
+            
+            // Обработчики событий для выбора изображения
+            imageOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Убираем активный класс со всех опций
+                    imageOptions.forEach(opt => opt.classList.remove('active'));
+                    // Добавляем активный класс к текущей опции
+                    this.classList.add('active');
+                    // Устанавливаем текущее изображение
+                    currentImage = this.getAttribute('data-image');
+                    // Перерисовываем холст
+                    initCanvas();
+                });
+            });
+            
+            // Обработчики событий для рисования на холсте
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // Для поддержки сенсорных устройств
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+            
+            function handleTouch(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            }
+            
+            function startDrawing(e) {
+                isDrawing = true;
+                draw(e);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                ctx.lineWidth = 20;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = currentColor;
+                
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+            
+            function stopDrawing() {
+                isDrawing = false;
+                ctx.beginPath();
+            }
+            
+            // Очистка холста
+            clearBtn.addEventListener('click', function() {
+                if (confirm('Очистить рисунок?')) {
+                    initCanvas();
+                }
+            });
+            
+            // Сохранение рисунка
+            saveBtn.addEventListener('click', function() {
+                const link = document.createElement('a');
+                link.download = 'раскраска.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+            
+            // Включение/выключение музыки
+            musicToggle.addEventListener('click', function() {
+                musicEnabled = !musicEnabled;
+                this.textContent = musicEnabled ? 'Выключить музыку' : 'Включить музыку';
+                
+                // Если музыка включается, воспроизводим тестовый звук
+                if (musicEnabled) {
+                    playSound('C4');
+                }
+            });
+            
+            // Инициализация приложения
+            initCanvas();
+        });
+    </script>
+</body>
+</html>

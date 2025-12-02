@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музыкальная Игра для Детей</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: linear-gradient(135deg, #ffccff, #ccffff);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        h1 {
+            color: #ff6699;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #6666ff;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        
+        .instrument-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 800px;
+            margin-bottom: 30px;
+        }
+        
+        .sound-button {
+            width: 150px;
+            height: 150px;
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .sound-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+        
+        .button-1 { background: linear-gradient(135deg, #ff6666, #ff3333); }
+        .button-2 { background: linear-gradient(135deg, #ff9966, #ff6600); }
+        .button-3 { background: linear-gradient(135deg, #ffff66, #ffff00); }
+        .button-4 { background: linear-gradient(135deg, #66ff66, #00cc00); }
+        .button-5 { background: linear-gradient(135deg, #66ccff, #0066ff); }
+        .button-6 { background: linear-gradient(135deg, #9966ff, #6600cc); }
+        .button-7 { background: linear-gradient(135deg, #ff66cc, #cc0099); }
+        .button-8 { background: linear-gradient(135deg, #66ffff, #00cccc); }
+        .button-9 { background: linear-gradient(135deg, #ffcc66, #ff9900); }
+        
+        .button-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .visual-effects {
+            width: 100%;
+            height: 200px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            background: rgba(255,255,255,0.3);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .control-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #ffcc00, #ff9900);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+        
+        .control-button:active {
+            transform: translateY(1px);
+        }
+        
+        .record-indicator {
+            display: none;
+            color: #ff3333;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .recording .record-indicator {
+            display: inline;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .bounce {
+            animation: bounce 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Музыкальная Игра для Детей</h1>
+    <div class="subtitle">Нажимай на кнопки и создавай музыку!</div>
+    
+    <div class="visual-effects" id="visualEffects"></div>
+    
+    <div class="controls">
+        <button class="control-button" id="recordButton">Запись</button>
+        <button class="control-button" id="playButton">Воспроизвести</button>
+        <button class="control-button" id="clearButton">Очистить</button>
+        <span class="record-indicator" id="recordIndicator">● Запись</span>
+    </div>
+    
+    <div class="instrument-container">
+        <button class="sound-button button-1" data-sound="drum1">
+            <div class="button-icon">🥁</div>
+            Барабан 1
+        </button>
+        <button class="sound-button button-2" data-sound="drum2">
+            <div class="button-icon">🎸</div>
+            Гитара
+        </button>
+        <button class="sound-button button-3" data-sound="bell1">
+            <div class="button-icon">🔔</div>
+            Колокольчик
+        </button>
+        <button class="sound-button button-4" data-sound="piano1">
+            <div class="button-icon">🎹</div>
+            Пианино
+        </button>
+        <button class="sound-button button-5" data-sound="xylophone">
+            <div class="button-icon">🎵</div>
+            Ксилофон
+        </button>
+        <button class="sound-button button-6" data-sound="drum3">
+            <div class="button-icon">🎤</div>
+            Тамбурин
+        </button>
+        <button class="sound-button button-7" data-sound="bell2">
+            <div class="button-icon">🎶</div>
+            Звоночек
+        </button>
+        <button class="sound-button button-8" data-sound="piano2">
+            <div class="button-icon">🎼</div>
+            Фортепиано
+        </button>
+        <button class="sound-button button-9" data-sound="cymbal">
+            <div class="button-icon">🥁</div>
+            Тарелки
+        </button>
+    </div>
+
+    <script>
+        // Звуковые эффекты (используем базовые тоны Web Audio API)
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Создаем звуки для разных инструментов
+        function playSound(type) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Настройки для разных звуков
+            switch(type) {
+                case 'drum1':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 100;
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+                    break;
+                case 'drum2':
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.value = 150;
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                    break;
+                case 'bell1':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 523.25; // До
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1);
+                    break;
+                case 'piano1':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 261.63; // До
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1.5);
+                    break;
+                case 'xylophone':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 392.00; // Соль
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.8);
+                    break;
+                case 'drum3':
+                    oscillator.type = 'square';
+                    oscillator.frequency.value = 80;
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.4);
+                    break;
+                case 'bell2':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 659.25; // Ми
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1.2);
+                    break;
+                case 'piano2':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 329.63; // Ми
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1.5);
+                    break;
+                case 'cymbal':
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.value = 200;
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.6);
+                    break;
+            }
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 2);
+            
+            // Создаем визуальный эффект
+            createVisualEffect(type);
+        }
+        
+        // Создание визуальных эффектов
+        function createVisualEffect(type) {
+            const effectsContainer = document.getElementById('visualEffects');
+            const colors = {
+                'drum1': '#ff6666',
+                'drum2': '#ff9966',
+                'bell1': '#ffff66',
+                'piano1': '#66ff66',
+                'xylophone': '#66ccff',
+                'drum3': '#9966ff',
+                'bell2': '#ff66cc',
+                'piano2': '#66ffff',
+                'cymbal': '#ffcc66'
+            };
+            
+            // Создаем частицы
+            for (let i = 0; i < 10; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                
+                const size = Math.random() * 30 + 10;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.backgroundColor = colors[type];
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.top = `${Math.random() * 100}%`;
+                
+                effectsContainer.appendChild(particle);
+                
+                // Анимация частиц
+                setTimeout(() => {
+                    particle.style.transform = `translate(${Math.random() * 200 - 100}px, ${Math.random() * 200 - 100}px) scale(0)`;
+                    particle.style.opacity = '0';
+                }, 10);
+                
+                // Удаляем частицы после анимации
+                setTimeout(() => {
+                    if (effectsContainer.contains(particle)) {
+                        effectsContainer.removeChild(particle);
+                    }
+                }, 1000);
+            }
+        }
+        
+        // Функционал записи и воспроизведения
+        let isRecording = false;
+        let recordedSequence = [];
+        let recordStartTime;
+        
+        document.getElementById('recordButton').addEventListener('click', function() {
+            isRecording = !isRecording;
+            
+            if (isRecording) {
+                recordedSequence = [];
+                recordStartTime = Date.now();
+                document.body.classList.add('recording');
+            } else {
+                document.body.classList.remove('recording');
+            }
+        });
+        
+        document.getElementById('playButton').addEventListener('click', function() {
+            if (recordedSequence.length === 0) return;
+            
+            recordedSequence.forEach(note => {
+                setTimeout(() => {
+                    playSound(note.sound);
+                    highlightButton(note.sound);
+                }, note.time);
+            });
+        });
+        
+        document.getElementById('clearButton').addEventListener('click', function() {
+            recordedSequence = [];
+        });
+        
+        // Подсветка кнопки при воспроизведении
+        function highlightButton(soundType) {
+            const button = document.querySelector(`[data-sound="${soundType}"]`);
+            button.classList.add('bounce');
+            setTimeout(() => {
+                button.classList.remove('bounce');
+            }, 300);
+        }
+        
+        // Обработчики для кнопок звуков
+        document.querySelectorAll('.sound-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const soundType = this.getAttribute('data-sound');
+                playSound(soundType);
+                
+                // Записываем нажатую ноту, если включена запись
+                if (isRecording) {
+                    recordedSequence.push({
+                        sound: soundType,
+                        time: Date.now() - recordStartTime
+                    });
+                }
+                
+                // Анимация нажатия
+                this.classList.add('bounce');
+                setTimeout(() => {
+                    this.classList.remove('bounce');
+                }, 300);
+            });
+        });
+    </script>
+</body>
+</html>

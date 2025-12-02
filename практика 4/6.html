@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Повтори мелодию — детская игра</title>
+  <meta name="description" content="Игра: послушай короткую мелодию и повтори её — большие цветные кнопки, подсказки и визуальные эффекты" />
+  <style>
+    :root{--bg:#0f1724;--panel:#071022;--muted:#94a3b8;--accent:#f97316;--success:#10b981;--danger:#ef4444}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial;background:linear-gradient(180deg,#071428,#0f1724);color:#e6eef6}
+    .wrap{max-width:980px;margin:28px auto;padding:20px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:0 10px 40px rgba(2,6,23,.6)}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .board{display:flex;gap:18px;margin-top:18px;align-items:flex-start}
+    .left{flex:0 0 320px;background:linear-gradient(180deg,#071a2a,#071022);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .right{flex:1;background:transparent}
+
+    .controls{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;gap:8px}
+    button{cursor:pointer;border:0;border-radius:12px;padding:10px 12px;font-weight:700}
+    .primary{background:linear-gradient(90deg,#34d399,#10b981);color:#042c1f}
+    .danger{background:linear-gradient(90deg,#fb7185,#ef4444);color:#fff}
+    .muted-btn{background:transparent;border:2px solid rgba(255,255,255,0.04);color:var(--muted)}
+
+    .pad-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:14px;border-radius:12px}
+    .note{height:140px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#052;user-select:none;position:relative;box-shadow:0 8px 18px rgba(2,6,23,.5);transition:transform .08s,box-shadow .12s}
+    .note:active{transform:scale(.98)}
+    .note.flash{box-shadow:0 18px 36px rgba(255,255,255,0.12);transform:scale(1.03)}
+    .note.red{background:linear-gradient(180deg,#ffb4b4,#ff7b7b)}
+    .note.green{background:linear-gradient(180deg,#c5fbd3,#69f0ae)}
+    .note.yellow{background:linear-gradient(180deg,#fff4b1,#ffd54f)}
+    .note.blue{background:linear-gradient(180deg,#cfe8ff,#76b0ff)}
+
+    .status{margin-top:14px;color:var(--muted);font-size:14px}
+    .score{font-size:18px;font-weight:800}
+
+    .hint-line{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .hint{background:rgba(255,255,255,0.04);padding:8px;border-radius:10px}
+
+    /* confetti canvas */
+    canvas.confetti{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none}
+
+    /* small screens */
+    @media (max-width:720px){ .board{flex-direction:column} .left{width:100%} .note{height:100px;font-size:20px} }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Игра Повтори мелодию">
+    <header>
+      <div>
+        <h1>Повтори мелодию</h1>
+        <div class="subtitle">Слушай короткую мелодию и повтори её. Подсказки и визуальные эффекты для мотивации.</div>
+      </div>
+      <div style="margin-left:auto;color:var(--muted);font-weight:700">Уровень: <span id="level">1</span></div>
+    </header>
+
+    <div class="board">
+      <div class="left">
+        <div class="controls">
+          <div class="row"><button id="startBtn" class="primary">▶ Начать</button><button id="strictBtn" class="muted-btn">Строгий режим: ВЫКЛ</button></div>
+          <div class="row"><button id="playSeqBtn" class="muted-btn">🔁 Прослушать снова</button><button id="hintBtn" class="muted-btn">💡 Подсказка</button></div>
+          <div class="row"><button id="easyBtn" class="muted-btn">Легко</button><button id="hardBtn" class="muted-btn">Сложно</button></div>
+
+          <div class="status"><div>Результат: <span id="message">—</span></div>
+            <div style="margin-top:8px">Счет: <span class="score" id="score">0</span></div>
+            <div style="margin-top:6px">Попытки на уровень: <span id="tries">3</span></div>
+          </div>
+
+          <div class="hint-line"><div class="hint">Подсказка играет следующий тон</div></div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="pad-grid" id="padGrid" aria-live="polite">
+          <!-- 4 notes -->
+          <div class="note red" data-note="0" id="pad0">До</div>
+          <div class="note green" data-note="1" id="pad1">Ре</div>
+          <div class="note yellow" data-note="2" id="pad2">Ми</div>
+          <div class="note blue" data-note="3" id="pad3">Фа</div>
+        </div>
+        <div style="margin-top:12px;color:var(--muted);font-size:13px">Подсказки: нажмите «Подсказка» чтобы услышать следующий тон. В «Строгом режиме» любая ошибка — сброс уровня.</div>
+      </div>
+    </div>
+
+    <canvas class="confetti" id="confetti"></canvas>
+  </div>
+
+  <script>
+    // Game: Repeat the melody
+    // Notes mapped to frequencies (C4, D4, E4, F4)
+    const NOTES = [262, 294, 330, 349];
+
+    // State
+    let sequence = []; // array of note indexes
+    let userPos = 0;
+    let level = 1;
+    let score = 0;
+    let tries = 3;
+    let strict = false;
+    let playingSequence = false;
+
+    // DOM
+    const startBtn = document.getElementById('startBtn');
+    const playSeqBtn = document.getElementById('playSeqBtn');
+    const hintBtn = document.getElementById('hintBtn');
+    const strictBtn = document.getElementById('strictBtn');
+    const messageEl = document.getElementById('message');
+    const scoreEl = document.getElementById('score');
+    const padGrid = document.getElementById('padGrid');
+    const pads = Array.from(document.querySelectorAll('.note'));
+    const levelEl = document.getElementById('level');
+    const triesEl = document.getElementById('tries');
+
+    // Audio
+    let audioCtx = null;
+    function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playTone(freq, duration=0.35, type='sine'){ ensureAudio(); const now=audioCtx.currentTime; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.28, now+0.02); g.gain.exponentialRampToValueAtTime(0.0001, now+duration); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+duration+0.02); }
+
+    // Visual effects: flash and confetti
+    function flashPad(i){ const el = document.getElementById('pad'+i); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),220); }
+
+    // Simple confetti
+    const confettiCanvas = document.getElementById('confetti'); function makeConfetti(){ const w=confettiCanvas.width=window.innerWidth; const h=confettiCanvas.height=window.innerHeight; const ctx=confettiCanvas.getContext('2d'); const pieces=[]; for(let i=0;i<120;i++){ pieces.push({x:Math.random()*w,y:Math.random()*h-100,vx:(Math.random()-0.5)*6,vy:Math.random()*4+2,size:4+Math.random()*8,color:`hsl(${Math.random()*360},70%,60%)`,rot:Math.random()*360}); }
+      let t=0; function loop(){ ctx.clearRect(0,0,w,h); for(const p of pieces){ p.x+=p.vx; p.y+=p.vy+0.3; p.rot+=p.vx*2; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180); ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size); ctx.restore(); if(p.y>h+50){ p.y=-20; p.x=Math.random()*w; } } t++; if(t<280) requestAnimationFrame(loop); else ctx.clearRect(0,0,w,h); } loop(); }
+
+    // Helpers
+    function randNote(){ return Math.floor(Math.random()*NOTES.length); }
+    function appendNote(){ sequence.push(randNote()); }
+
+    // Play sequence to child
+    async function playSequence(){ if(playingSequence) return; playingSequence=true; playingSequence=true; messageEl.textContent='Слушай...'; for(let i=0;i<sequence.length;i++){ const n = sequence[i]; playTone(NOTES[n]); flashPad(n); await wait(550); } playingSequence=false; messageEl.textContent='Твоя очередь!'; userPos=0; }
+
+    function wait(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+    // Start new game or level
+    function startGame(){ level=1; score=0; tries=3; sequence=[]; nextLevel(); }
+    function nextLevel(){ levelEl.textContent = level; triesEl.textContent = tries; // add one note per level (or more advanced logic)
+      appendNote(); updateUI(); playSequence(); }
+
+    function updateUI(){ scoreEl.textContent = score; }
+
+    // handle user input
+    function handleUserNote(n){ if(playingSequence) return; playTone(NOTES[n],0.28); flashPad(n);
+      if(sequence[userPos] === n){ userPos++; if(userPos === sequence.length){ // success
+          score += 10*level; messageEl.textContent = 'Правильно!'; updateUI(); makeConfetti(); level++; userPos=0; setTimeout(()=> nextLevel(), 900);
+        } else {
+          // correct so far
+        }
+      } else {
+        // mistake
+        tries--; triesEl.textContent = tries; if(strict || tries<=0){ messageEl.textContent = 'Ошибочка — пробуем сначала!'; score = Math.max(0, score-5); updateUI(); setTimeout(()=>{ startGame(); },900); } else { messageEl.textContent = 'Не то — попробуй ещё'; score = Math.max(0, score-2); updateUI(); // replay sequence after short delay
+            setTimeout(()=> playSequence(),700);
+        }
+      }
+    }
+
+    // Hint: play next note only
+    function playHint(){ if(playingSequence) return; const nextIdx = sequence[userPos]; messageEl.textContent = 'Подсказка — слушай следующий тон'; playTone(NOTES[nextIdx]); flashPad(nextIdx); }
+
+    // Event listeners
+    startBtn.addEventListener('click', ()=>{ startGame(); });
+    playSeqBtn.addEventListener('click', ()=>{ if(sequence.length) playSequence(); });
+    hintBtn.addEventListener('click', ()=>{ playHint(); });
+    strictBtn.addEventListener('click', ()=>{ strict = !strict; strictBtn.textContent = 'Строгий режим: ' + (strict? 'ВКЛ' : 'ВЫКЛ'); strictBtn.classList.toggle('danger', strict); });
+
+    pads.forEach(p=>{ p.addEventListener('click', ()=>{ const n = Number(p.dataset.note); handleUserNote(n); }); });
+
+    // keyboard support (1-4)
+    document.addEventListener('keydown', (e)=>{ if(['1','2','3','4'].includes(e.key)){ const idx = Number(e.key)-1; const pad = pads[idx]; if(pad) pad.click(); } if(e.code==='Space'){ e.preventDefault(); if(sequence.length) playSequence(); } });
+
+    // difficulty toggles
+    document.getElementById('easyBtn').addEventListener('click', ()=>{ // in easy mode hide strict, more hints (here we simply add an extra repeat)
+      messageEl.textContent = 'Режим: Легко — последовательность будет проигрываться 2 раза'; // play twice
+      playSeqBtn.addEventListener('click', async function twice(){ if(sequence.length){ await playSequence(); await wait(400); await playSequence(); } playSeqBtn.removeEventListener('click', twice); });
+    });
+    document.getElementById('hardBtn').addEventListener('click', ()=>{ messageEl.textContent = 'Режим: Сложно — меньше подсказок'; strict = true; strictBtn.textContent = 'Строгий режим: ВКЛ'; strictBtn.classList.add('danger'); });
+
+    // initialize with 1 note so user can press Play
+    appendNote(); updateUI();
+
+    // Accessibility: announce messages
+    const liveRegion = document.createElement('div'); liveRegion.setAttribute('aria-live','polite'); liveRegion.className='visually-hidden'; document.body.appendChild(liveRegion);
+    const origMessageObserver = new MutationObserver(()=>{ liveRegion.textContent = messageEl.textContent; }); origMessageObserver.observe(messageEl,{childList:true,subtree:true});
+
+  </script>
+</body>
+</html>

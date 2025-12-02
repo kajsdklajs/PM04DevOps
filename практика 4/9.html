@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Интерактивный метроном</title>
+<style>
+  :root{
+    --bg:#0f1724; --panel:#071026; --accent:#10b981; --accent2:#60a5fa; --muted:#94a3b8;
+    --circle-size:220px;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#021022,#07122a);color:#e6eef6;display:flex;align-items:center;justify-content:center}
+  .card{width:100%;max-width:920px;padding:22px;border-radius:16px;background:linear-gradient(180deg,#071426,#071022);box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+  header{display:flex;align-items:center;gap:12px}
+  h1{margin:0;font-size:20px}
+  .layout{display:flex;gap:18px;margin-top:16px;align-items:flex-start}
+  .left{flex:0 0 320px;background:rgba(255,255,255,0.02);padding:14px;border-radius:12px}
+  .right{flex:1;padding:14px}
+  .big-btn{
+    width:100%;padding:18px;border-radius:14px;background:linear-gradient(90deg,var(--accent),#059669);border:0;color:#052e1f;font-weight:900;font-size:20px;cursor:pointer;
+    box-shadow:0 10px 30px rgba(16,185,129,0.12);
+  }
+  .big-btn.stop{background:linear-gradient(90deg,#ef4444,#fb7185);color:#fff}
+  .metric{display:flex;gap:12px;align-items:center;margin-top:12px}
+  .control{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+  label{font-size:13px;color:var(--muted)}
+  input[type="range"]{width:100%}
+  select,input[type="number"]{padding:8px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:inherit}
+  .circle-wrap{display:flex;align-items:center;justify-content:center;height:100%}
+  .beat-indicator{width:var(--circle-size);height:var(--circle-size);border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 30%, rgba(96,165,250,0.18), rgba(16,185,129,0.06));transition:transform .06s ease, box-shadow .06s ease}
+  .beat-indicator .dot{width:110px;height:110px;border-radius:50%;background:linear-gradient(180deg,#0ea5a6,#06b6d4);display:flex;align-items:center;justify-content:center;font-weight:900;color:#022;}
+  .beat-indicator.pulse{ transform: scale(1.08); box-shadow:0 20px 50px rgba(14,165,166,0.18); }
+  .small{font-size:13px;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center}
+  .muted{color:var(--muted)}
+  .upload{display:flex;gap:8px;align-items:center}
+  input[type="file"]{display:none}
+  .kbd{background:rgba(255,255,255,0.03);padding:4px 8px;border-radius:6px;font-weight:700}
+  footer{margin-top:12px;color:var(--muted);font-size:13px;text-align:center}
+  @media(max-width:880px){ .layout{flex-direction:column} .left{width:100%} .right{width:100%} .beat-indicator{width:180px;height:180px} .beat-indicator .dot{width:90px;height:90px} }
+</style>
+</head>
+<body>
+  <div class="card" role="application" aria-label="Метроном">
+    <header>
+      <div>
+        <h1>Интерактивный метроном</h1>
+        <div class="small muted">Пробел — старт/стоп. Точная планировка звука (WebAudio).</div>
+      </div>
+      <div style="margin-left:auto" class="small muted">Версия: 1.0</div>
+    </header>
+
+    <div class="layout">
+      <div class="left" aria-hidden="false">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <button id="startStop" class="big-btn" aria-pressed="false">▶ Пуск</button>
+
+          <div class="control">
+            <label for="bpm">Темп (BPM)</label>
+            <input id="bpm" type="range" min="30" max="240" value="100">
+            <div class="row"><input id="bpmNum" type="number" min="30" max="240" value="100" style="width:84px"><div class="muted">уд./мин</div></div>
+          </div>
+
+          <div class="control">
+            <label for="beatsPerBar">Доля/такта</label>
+            <select id="beatsPerBar">
+              <option value="2">2/4</option>
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4</option>
+              <option value="6">6/8</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <label for="subdivision">Деление (субдоля)</label>
+            <select id="subdivision">
+              <option value="1" selected>четверть</option>
+              <option value="2">восьмая</option>
+              <option value="3">триол.</option>
+              <option value="4">шестнадцатая</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <label>Звук удара</label>
+            <select id="soundSelect">
+              <option value="click">Click (синтез)</option>
+              <option value="beep">Beep (тон)</option>
+              <option value="wood">Wood (короткий шум)</option>
+              <option value="custom">Загрузить свой...</option>
+            </select>
+            <div class="upload" id="uploadRow" style="display:none">
+              <label class="kbd" id="uploadLabel">Выбрать файл</label>
+              <input id="fileInput" type="file" accept="audio/*">
+              <div id="fileName" class="muted small">нет файла</div>
+            </div>
+          </div>
+
+          <div class="control">
+            <label for="accentOnDown">Акцент на первый такт</label>
+            <div class="row"><input id="accentOnDown" type="checkbox" checked> <div class="muted">ударнее звук на downbeat</div></div>
+          </div>
+
+          <div class="control">
+            <label for="volume">Громкость</label>
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+          </div>
+
+          <div class="control">
+            <label>Клавиатура</label>
+            <div class="muted small">Пробел — старт/пауза, ↑/↓ — +/− BPM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="circle-wrap">
+          <div id="beatIndicator" class="beat-indicator" aria-live="polite" aria-atomic="true">
+            <div id="dot" class="dot">1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>Синтез звука: WebAudio. Для лучшей точности разрешите звук (щелкните по странице) и при необходимости загрузите собственный сэмпл.</footer>
+  </div>
+
+<script>
+/* Метро́ном с планировщиком (lookahead) — точное воспроизведение.
+   Особенности:
+   - WebAudio scheduling: scheduler + lookahead (25ms) + interval (25ms)
+   - Визуальный индикатор синхронизирован с планировщиком
+   - Поддержка акцента первого удара, субдолей, загрузки сэмпла
+*/
+
+// === Константы планировщика ===
+const lookahead = 25.0;    // ms — как часто scheduler проверяет план
+const scheduleAheadTime = 0.1; // sec — сколько времени вперёд планируем события
+
+// === DOM ===
+const startStopBtn = document.getElementById('startStop');
+const bpmSlider = document.getElementById('bpm');
+const bpmNum = document.getElementById('bpmNum');
+const beatsPerBarEl = document.getElementById('beatsPerBar');
+const subdivisionEl = document.getElementById('subdivision');
+const dot = document.getElementById('dot');
+const indicator = document.getElementById('beatIndicator');
+const soundSelect = document.getElementById('soundSelect');
+const uploadRow = document.getElementById('uploadRow');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const accentCheck = document.getElementById('accentOnDown');
+const volumeEl = document.getElementById('volume');
+
+let audioCtx = null;
+let isRunning = false;
+let currentQuarterNote = 0;      // индекс текущей субдоли относительно шага
+let nextNoteTime = 0.0;         // когда следующая нота будет играться (в контексте audioCtx)
+let timerID = null;
+let bpm = Number(bpmSlider.value);
+let beatsPerBar = Number(beatsPerBarEl.value);
+let subdivision = Number(subdivisionEl.value); // 1 = quarter, 2 = eighths, etc.
+let lookaheadInterval = null;
+
+let customBuffer = null;
+
+// gain node
+let masterGain = null;
+
+// preload default tiny sample (optional) - we'll synthesize if needed
+
+// === Utility ===
+function ensureAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(!masterGain){
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = Number(volumeEl.value);
+    masterGain.connect(audioCtx.destination);
+  }
+}
+
+// convert bpm and subdivision to seconds per tick (subdivision)
+function secondsPerSubdivision(bpm, subdivision){
+  const quarterSec = 60.0 / bpm;
+  return quarterSec / subdivision;
+}
+
+// Schedule visual tick
+function scheduleTickVisual(beatIndex){
+  // update dot text (1..beatsPerBar)
+  const beatNum = (Math.floor(beatIndex / subdivision) % beatsPerBar) + 1;
+  dot.textContent = beatNum;
+  // trigger visual pulse
+  indicator.classList.add('pulse');
+  setTimeout(()=> indicator.classList.remove('pulse'), 120);
+}
+
+// play a click at specified time (accurate)
+function playClick(time, isDownbeat=false){
+  ensureAudioCtx();
+  const type = soundSelect.value;
+
+  if(type === 'custom' && customBuffer){
+    const src = audioCtx.createBufferSource();
+    src.buffer = customBuffer;
+    const g = audioCtx.createGain();
+    g.gain.value = isDownbeat && accentCheck.checked ? 1.0 : 0.7;
+    src.connect(g); g.connect(masterGain);
+    src.start(time);
+    return;
+  }
+
+  if(type === 'click'){
+    // short click: two oscillators for clicky sound
+    const o1 = audioCtx.createOscillator();
+    const o2 = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o1.type = 'square'; o2.type = 'sine';
+    o1.frequency.setValueAtTime(isDownbeat?1200:1000, time);
+    o2.frequency.setValueAtTime(isDownbeat?1800:1600, time);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime((isDownbeat && accentCheck.checked ? 0.9 : 0.35) * Number(volumeEl.value), time + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+    o1.connect(g); o2.connect(g); g.connect(masterGain);
+    o1.start(time); o2.start(time);
+    o1.stop(time + 0.09); o2.stop(time + 0.09);
+    return;
+  }
+
+  if(type === 'beep'){
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(isDownbeat?1000:800, time);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime((isDownbeat && accentCheck.checked ? 0.9 : 0.4) * Number(volumeEl.value), time + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.18);
+    o.connect(g); g.connect(masterGain);
+    o.start(time); o.stop(time + 0.18);
+    return;
+  }
+
+  if(type === 'wood'){
+    // short noise burst (wood block like)
+    const bufferSize = audioCtx.sampleRate * 0.03;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){
+      data[i] = (Math.random()*2-1) * Math.exp(-8 * i / bufferSize);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.value = (isDownbeat && accentCheck.checked ? 0.9 : 0.45) * Number(volumeEl.value);
+    src.connect(g); g.connect(masterGain);
+    src.start(time);
+    return;
+  }
+}
+
+// === Scheduler ===
+function nextNote(){
+  // advance currentQuarterNote and set nextNoteTime
+  const secondsPerTick = secondsPerSubdivision(bpm, subdivision);
+  nextNoteTime += secondsPerTick;
+  currentQuarterNote++;
+}
+
+function scheduler(){
+  // while there are notes that will need to play before the next interval, schedule them
+  while(nextNoteTime < audioCtx.currentTime + scheduleAheadTime){
+    // Determine if this tick is a downbeat (first subdivisions of a beat)
+    const isDownbeat = (currentQuarterNote % (subdivision * beatsPerBar) === 0);
+    // If we want visual beat number index: pass currentQuarterNote
+    scheduleTickVisual(currentQuarterNote);
+    // Play sound for this tick
+    playClick(nextNoteTime, isDownbeat);
+    nextNote();
+  }
+}
+
+// Start ticking
+function startMetronome(){
+  if(isRunning) return;
+  ensureAudioCtx();
+  // initialize timing
+  currentQuarterNote = 0;
+  nextNoteTime = audioCtx.currentTime + 0.05; // small offset
+  // kick off scheduler
+  lookaheadInterval = setInterval(()=> {
+    scheduler();
+  }, lookahead);
+  isRunning = true;
+  startStopBtn.classList.add('stop');
+  startStopBtn.textContent = '■ Стоп';
+  startStopBtn.setAttribute('aria-pressed','true');
+}
+
+// Stop ticking
+function stopMetronome(){
+  if(!isRunning) return;
+  clearInterval(lookaheadInterval);
+  lookaheadInterval = null;
+  isRunning = false;
+  startStopBtn.classList.remove('stop');
+  startStopBtn.textContent = '▶ Пуск';
+  startStopBtn.setAttribute('aria-pressed','false');
+}
+
+// === UI event wiring ===
+startStopBtn.addEventListener('click', ()=>{
+  if(!audioCtx) { /* resume context on user gesture */ ensureAudioCtx(); }
+  if(!isRunning) startMetronome(); else stopMetronome();
+});
+
+// sync bpm slider & number
+bpmSlider.addEventListener('input', (e)=>{
+  bpm = Number(e.target.value);
+  bpmNum.value = bpm;
+});
+bpmNum.addEventListener('change', (e)=>{
+  let v = Number(e.target.value);
+  if(isNaN(v) || v < 30) v = 30;
+  if(v > 240) v = 240;
+  bpm = v;
+  bpmSlider.value = v;
+  bpmNum.value = v;
+});
+beatsPerBarEl.addEventListener('change', (e)=> { beatsPerBar = Number(e.target.value); });
+subdivisionEl.addEventListener('change', (e)=> { subdivision = Number(e.target.value); });
+volumeEl.addEventListener('input', (e)=>{ if(masterGain) masterGain.gain.setValueAtTime(Number(e.target.value), audioCtx ? audioCtx.currentTime : 0); });
+
+// sound select show upload row
+soundSelect.addEventListener('change', (e)=>{
+  if(e.target.value === 'custom'){
+    uploadRow.style.display = 'flex';
+  } else {
+    uploadRow.style.display = 'none';
+    customBuffer = null;
+    fileName.textContent = 'нет файла';
+  }
+});
+
+// file upload
+document.getElementById('uploadLabel').addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', async (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  fileName.textContent = f.name;
+  ensureAudioCtx();
+  const arr = await f.arrayBuffer();
+  try{
+    customBuffer = await audioCtx.decodeAudioData(arr.slice(0));
+    // set selection to custom
+    soundSelect.value = 'custom';
+    uploadRow.style.display = 'flex';
+  }catch(err){
+    console.warn('decode error', err);
+    alert('Не удалось загрузить звук — проверьте файл.');
+  }
+});
+
+// keyboard controls
+document.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ e.preventDefault(); if(!isRunning) startMetronome(); else stopMetronome(); }
+  if(e.key === 'ArrowUp'){ bpm = Math.min(240, bpm + 1); bpmSlider.value = bpm; bpmNum.value = bpm; }
+  if(e.key === 'ArrowDown'){ bpm = Math.max(30, bpm - 1); bpmSlider.value = bpm; bpmNum.value = bpm; }
+});
+
+// accessibility: announce bpm when changed
+bpmSlider.addEventListener('change', ()=> {
+  const live = document.createElement('div'); live.setAttribute('aria-live','polite'); live.className='visually-hidden'; live.textContent = `Темп ${bpm}`;
+  document.body.appendChild(live);
+  setTimeout(()=> live.remove(),1000);
+});
+
+// small helper for initial user gesture: resume audio context on first interaction
+['click','touchstart','keydown'].forEach(evt=>{
+  window.addEventListener(evt, function resume(){ if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); window.removeEventListener(evt, resume); }, {once:true});
+});
+
+</script>
+</body>
+</html>
