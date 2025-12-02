@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Киберпанк Интерфейс</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            background: #0a0a16;
+            color: #00f3ff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            grid-template-rows: 80px 1fr 1fr 100px;
+            gap: 15px;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        .header {
+            grid-column: 1 / 4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #00f3ff;
+            padding-bottom: 10px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00f3ff;
+        }
+
+        .nav {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-item {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover {
+            border: 1px solid #00f3ff;
+            box-shadow: 0 0 10px #00f3ff;
+        }
+
+        .panel {
+            background: rgba(10, 15, 30, 0.7);
+            border: 1px solid #00f3ff;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            overflow: hidden;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #ff00c8;
+            text-shadow: 0 0 5px #ff00c8;
+        }
+
+        .graph-container {
+            grid-column: 2;
+            grid-row: 2 / 4;
+            position: relative;
+        }
+
+        #graph3d {
+            width: 100%;
+            height: 100%;
+        }
+
+        .stats {
+            grid-column: 1;
+            grid-row: 2 / 4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        .controls {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ff00c8;
+        }
+
+        .slider {
+            width: 100%;
+            height: 5px;
+            background: rgba(0, 243, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #00f3ff;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00f3ff;
+        }
+
+        .data-stream {
+            grid-column: 3;
+            grid-row: 3;
+            overflow-y: auto;
+        }
+
+        .data-line {
+            padding: 5px;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.1);
+            font-size: 14px;
+            animation: dataFlow 0.5s linear;
+        }
+
+        @keyframes dataFlow {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .footer {
+            grid-column: 1 / 4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #00f3ff;
+            padding-top: 10px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ff55;
+            box-shadow: 0 0 10px #00ff55;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 243, 255, 0.5);
+            box-shadow: 0 0 10px #00f3ff;
+            animation: scan 3s linear infinite;
+            z-index: 100;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .glitch {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwZjNmZiIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtZGFzaGFycmF5PSI0Ii8+PC9zdmc+');
+            opacity: 0.1;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="scan-line"></div>
+    <div class="glitch"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="logo">NEOTOKYO<span style="color: #ff00c8;">_SYSTEMS</span></div>
+            <nav class="nav">
+                <div class="nav-item">DASHBOARD</div>
+                <div class="nav-item">NETWORK</div>
+                <div class="nav-item">DATA STREAMS</div>
+                <div class="nav-item">SECURITY</div>
+            </nav>
+        </header>
+
+        <div class="panel stats">
+            <h3 class="panel-title">СИСТЕМНЫЕ ПОКАЗАТЕЛИ</h3>
+            <div class="stat-item">
+                <span>CPU Загрузка:</span>
+                <span>47%</span>
+            </div>
+            <div class="stat-item">
+                <span>Память:</span>
+                <span>3.2/8 ГБ</span>
+            </div>
+            <div class="stat-item">
+                <span>Температура:</span>
+                <span>42°C</span>
+            </div>
+            <div class="stat-item">
+                <span>Сеть:</span>
+                <span>124 Мб/с</span>
+            </div>
+            <div class="stat-item">
+                <span>Энергия:</span>
+                <span>87%</span>
+            </div>
+            
+            <h3 class="panel-title" style="margin-top: 20px;">АКТИВНЫЕ ПРОЦЕССЫ</h3>
+            <div class="stat-item">
+                <span>Neural Net:</span>
+                <span>Запущен</span>
+            </div>
+            <div class="stat-item">
+                <span>Data Miner:</span>
+                <span>Активен</span>
+            </div>
+            <div class="stat-item">
+                <span>Crypto Core:</span>
+                <span>Ожидание</span>
+            </div>
+        </div>
+
+        <div class="panel graph-container">
+            <h3 class="panel-title">3D ВИЗУАЛИЗАЦИЯ ДАННЫХ</h3>
+            <div id="graph3d"></div>
+        </div>
+
+        <div class="panel controls">
+            <h3 class="panel-title">УПРАВЛЕНИЕ СИСТЕМОЙ</h3>
+            
+            <div class="control-group">
+                <label class="control-label">Интенсивность рендеринга</label>
+                <input type="range" min="0" max="100" value="75" class="slider">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Частота данных</label>
+                <input type="range" min="0" max="100" value="60" class="slider">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Качество графики</label>
+                <input type="range" min="0" max="100" value="85" class="slider">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Уровень шифрования</label>
+                <input type="range" min="0" max="100" value="90" class="slider">
+            </div>
+            
+            <button style="width: 100%; padding: 10px; margin-top: 20px; background: transparent; border: 1px solid #ff00c8; color: #ff00c8; cursor: pointer; transition: all 0.3s;">
+                АКТИВИРОВАТЬ СИСТЕМУ
+            </button>
+        </div>
+
+        <div class="panel data-stream">
+            <h3 class="panel-title">ПОТОК ДАННЫХ</h3>
+            <div id="data-container"></div>
+        </div>
+
+        <footer class="footer">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>СИСТЕМА АКТИВНА</span>
+            </div>
+            <div>ВЕРСИЯ: 2.3.7</div>
+            <div>ВРЕМЯ: <span id="time">00:00:00</span></div>
+        </footer>
+    </div>
+
+    <script>
+        // Инициализация Three.js сцены
+        let scene, camera, renderer, cube;
+        
+        function initThreeJS() {
+            // Создание сцены
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a16);
+            
+            // Создание камеры
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Создание рендерера
+            const container = document.getElementById('graph3d');
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            // Создание геометрии и материала
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x00f3ff,
+                wireframe: true
+            });
+            
+            // Создание куба
+            cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+            
+            // Добавление освещения
+            const ambientLight = new THREE.AmbientLight(0x00f3ff, 0.3);
+            scene.add(ambientLight);
+            
+            const pointLight = new THREE.PointLight(0xff00c8, 1, 100);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
+            
+            // Анимация
+            animate();
+            
+            // Обработка изменения размера окна
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Вращение куба
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            
+            // Пульсация цвета
+            const time = Date.now() * 0.001;
+            cube.material.color.setHSL(Math.sin(time * 0.5) * 0.5 + 0.5, 0.8, 0.5);
+            
+            renderer.render(scene, camera);
+        }
+        
+        function onWindowResize() {
+            const container = document.getElementById('graph3d');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+        
+        // Генерация случайных данных для потока
+        function generateDataStream() {
+            const dataContainer = document.getElementById('data-container');
+            const dataTypes = [
+                "NEURAL_PROCESS", "CRYPTO_ANALYSIS", "DATA_MINING", 
+                "SECURITY_SCAN", "NETWORK_TRAFFIC", "AI_TRAINING"
+            ];
+            
+            const newData = document.createElement('div');
+            newData.className = 'data-line';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const dataType = dataTypes[Math.floor(Math.random() * dataTypes.length)];
+            const value = Math.floor(Math.random() * 1000);
+            
+            newData.textContent = `[${timestamp}] ${dataType}: ${value} units processed`;
+            
+            dataContainer.prepend(newData);
+            
+            // Ограничиваем количество элементов
+            if (dataContainer.children.length > 15) {
+                dataContainer.removeChild(dataContainer.lastChild);
+            }
+        }
+        
+        // Обновление времени
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('time').textContent = timeString;
+        }
+        
+        // Инициализация при загрузке страницы
+        window.onload = function() {
+            initThreeJS();
+            setInterval(generateDataStream, 1000);
+            setInterval(updateTime, 1000);
+            updateTime();
+        };
+    </script>
+</body>
+</html>

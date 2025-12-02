@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статус батчей</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .batch-status-container {
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+        }
+        
+        .status-header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .status-header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .status-header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .status-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            border-top: 4px solid;
+        }
+        
+        .status-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .batches-in-progress {
+            border-top-color: #3498db;
+        }
+        
+        .loaded-samples {
+            border-top-color: #2ecc71;
+        }
+        
+        .tests-completed {
+            border-top-color: #9b59b6;
+        }
+        
+        .status-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        .batches-in-progress .status-icon {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: #3498db;
+        }
+        
+        .loaded-samples .status-icon {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: #2ecc71;
+        }
+        
+        .tests-completed .status-icon {
+            background-color: rgba(155, 89, 182, 0.1);
+            color: #9b59b6;
+        }
+        
+        .status-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #2c3e50;
+        }
+        
+        .status-label {
+            font-size: 16px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #ecf0f1;
+            border-radius: 3px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1s ease-in-out;
+        }
+        
+        .batches-in-progress .progress-fill {
+            background-color: #3498db;
+            width: 70%;
+        }
+        
+        .loaded-samples .progress-fill {
+            background-color: #2ecc71;
+            width: 30%;
+        }
+        
+        .tests-completed .progress-fill {
+            background-color: #9b59b6;
+            width: 80%;
+        }
+        
+        @media (max-width: 768px) {
+            .batch-status-container {
+                grid-template-columns: 1fr;
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="batch-status-container">
+        <div class="status-header">
+            <h1>Текущий статус батчей</h1>
+            <p>Обновлено: Сегодня, 14:30</p>
+        </div>
+        
+        <div class="status-card batches-in-progress">
+            <div class="status-icon">
+                <i>⚙️</i>
+            </div>
+            <div class="status-value">7</div>
+            <div class="status-label">Батчей в процессе</div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+        
+        <div class="status-card loaded-samples">
+            <div class="status-icon">
+                <i>📊</i>
+            </div>
+            <div class="status-value">9</div>
+            <div class="status-label">Загруженных образцов</div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+        
+        <div class="status-card tests-completed">
+            <div class="status-icon">
+                <i>✅</i>
+            </div>
+            <div class="status-value">32</div>
+            <div class="status-label">Завершенных тестов</div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Простая анимация появления чисел
+        document.addEventListener('DOMContentLoaded', function() {
+            const counters = document.querySelectorAll('.status-value');
+            
+            counters.forEach(counter => {
+                const target = parseInt(counter.innerText);
+                let current = 0;
+                const increment = target / 50;
+                
+                const updateCounter = () => {
+                    if (current < target) {
+                        current += increment;
+                        counter.innerText = Math.ceil(current);
+                        setTimeout(updateCounter, 30);
+                    } else {
+                        counter.innerText = target;
+                    }
+                };
+                
+                updateCounter();
+            });
+        });
+    </script>
+</body>
+</html>

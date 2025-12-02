@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Календарь, пароль и погода</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Стили для календаря */
+        .calendar {
+            text-align: center;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .calendar-nav {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .calendar-day {
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .calendar-day.header {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .calendar-day.today {
+            background: #667eea;
+            color: white;
+        }
+
+        .calendar-day.other-month {
+            color: #ccc;
+        }
+
+        /* Стили для формы пароля */
+        .password-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .password-input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .password-input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .submit-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .password-strength {
+            height: 5px;
+            border-radius: 5px;
+            margin-top: 5px;
+            transition: all 0.3s;
+        }
+
+        /* Стили для погоды */
+        .weather-widget {
+            text-align: center;
+        }
+
+        .weather-icon {
+            font-size: 48px;
+            margin: 15px 0;
+        }
+
+        .temperature {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .weather-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Календарь -->
+        <div class="card">
+            <h2>Календарь</h2>
+            <div class="calendar">
+                <div class="calendar-header">
+                    <button class="calendar-nav" id="prevMonth">←</button>
+                    <h3 id="currentMonth"></h3>
+                    <button class="calendar-nav" id="nextMonth">→</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+        </div>
+
+        <!-- Форма пароля -->
+        <div class="card">
+            <h2>Проверка пароля</h2>
+            <form class="password-form" id="passwordForm">
+                <input type="password" class="password-input" id="password" 
+                       placeholder="Введите пароль" required>
+                <div class="password-strength" id="passwordStrength"></div>
+                <button type="submit" class="submit-btn">Проверить пароль</button>
+            </form>
+            <div id="passwordMessage" style="margin-top: 15px; text-align: center;"></div>
+        </div>
+
+        <!-- Погода -->
+        <div class="card full-width">
+            <h2>Погода</h2>
+            <div class="weather-widget">
+                <div class="weather-icon" id="weatherIcon">☀️</div>
+                <div class="temperature" id="temperature">--°C</div>
+                <div class="weather-description" id="weatherDescription">Загрузка...</div>
+                <div class="weather-details">
+                    <div class="weather-item">
+                        <div>Влажность</div>
+                        <div id="humidity">--%</div>
+                    </div>
+                    <div class="weather-item">
+                        <div>Ветер</div>
+                        <div id="windSpeed">-- м/с</div>
+                    </div>
+                    <div class="weather-item">
+                        <div>Давление</div>
+                        <div id="pressure">-- hPa</div>
+                    </div>
+                    <div class="weather-item">
+                        <div>Видимость</div>
+                        <div id="visibility">-- км</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Календарь
+        let currentDate = new Date();
+
+        function updateCalendar() {
+            const monthNames = [
+                "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+            ];
+
+            const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+            document.getElementById('currentMonth').textContent = 
+                `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+
+            // Заголовки дней недели
+            dayNames.forEach(day => {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day header';
+                dayElement.textContent = day;
+                calendarGrid.appendChild(dayElement);
+            });
+
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const today = new Date();
+
+            // Пустые ячейки перед первым днем месяца
+            for (let i = 0; i < (firstDay.getDay() + 6) % 7; i++) {
+                const emptyElement = document.createElement('div');
+                emptyElement.className = 'calendar-day other-month';
+                calendarGrid.appendChild(emptyElement);
+            }
+
+            // Дни месяца
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                dayElement.textContent = day;
+
+                const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                if (cellDate.toDateString() === today.toDateString()) {
+                    dayElement.classList.add('today');
+                }
+
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            updateCalendar();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            updateCalendar();
+        });
+
+        // Проверка пароля
+        document.getElementById('password').addEventListener('input', function(e) {
+            const password = e.target.value;
+            const strengthBar = document.getElementById('passwordStrength');
+            let strength = 0;
+
+            if (password.length >= 8) strength += 25;
+            if (/[A-Z]/.test(password)) strength += 25;
+            if (/[0-9]/.test(password)) strength += 25;
+            if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+
+            strengthBar.style.width = strength + '%';
+            
+            if (strength < 50) {
+                strengthBar.style.background = '#ff4757';
+            } else if (strength < 75) {
+                strengthBar.style.background = '#ffa502';
+            } else {
+                strengthBar.style.background = '#2ed573';
+            }
+        });
+
+        document.getElementById('passwordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('passwordMessage');
+
+            // Простая проверка пароля
+            if (password.length < 6) {
+                message.textContent = 'Пароль слишком короткий (минимум 6 символов)';
+                message.style.color = '#ff4757';
+            } else if (!/[A-Z]/.test(password)) {
+                message.textContent = 'Добавьте заглавные буквы';
+                message.style.color = '#ffa502';
+            } else if (!/[0-9]/.test(password)) {
+                message.textContent = 'Добавьте цифры';
+                message.style.color = '#ffa502';
+            } else {
+                message.textContent = 'Пароль надежный!';
+                message.style.color = '#2ed573';
+            }
+        });
+
+        // Погода (симуляция данных)
+        function updateWeather() {
+            // В реальном приложении здесь был бы API запрос
+            const weatherData = {
+                temperature: Math.round(Math.random() * 30 - 5),
+                humidity: Math.round(Math.random() * 40 + 40),
+                windSpeed: (Math.random() * 10).toFixed(1),
+                pressure: Math.round(Math.random() * 100 + 1000),
+                visibility: (Math.random() * 10 + 5).toFixed(1)
+            };
+
+            document.getElementById('temperature').textContent = weatherData.temperature + '°C';
+            document.getElementById('humidity').textContent = weatherData.humidity + '%';
+            document.getElementById('windSpeed').textContent = weatherData.windSpeed + ' м/с';
+            document.getElementById('pressure').textContent = weatherData.pressure + ' hPa';
+            document.getElementById('visibility').textContent = weatherData.visibility + ' км';
+
+            // Выбор иконки погоды в зависимости от температуры
+            let weatherIcon = '☀️';
+            let description = 'Солнечно';
+            
+            if (weatherData.temperature < 0) {
+                weatherIcon = '❄️';
+                description = 'Мороз';
+            } else if (weatherData.temperature < 10) {
+                weatherIcon = '☁️';
+                description = 'Облачно';
+            } else if (weatherData.humidity > 70) {
+                weatherIcon = '🌧️';
+                description = 'Дождь';
+            }
+
+            document.getElementById('weatherIcon').textContent = weatherIcon;
+            document.getElementById('weatherDescription').textContent = description;
+        }
+
+        // Инициализация
+        updateCalendar();
+        updateWeather();
+
+        // Обновляем погоду каждые 30 секунд
+        setInterval(updateWeather, 30000);
+    </script>
+</body>
+</html>

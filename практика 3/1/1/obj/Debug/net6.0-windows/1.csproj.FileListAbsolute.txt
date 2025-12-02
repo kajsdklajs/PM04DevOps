@@ -1,0 +1,17 @@
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.csproj.AssemblyReference.cache
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.csproj.GenerateResource.cache
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.GeneratedMSBuildEditorConfig.editorconfig
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.AssemblyInfoInputs.cache
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.AssemblyInfo.cs
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.csproj.CoreCompileInputs.cache
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\InstrumentStatusApp.MainForm.resources
+D:\131\Semenov pavel\3zd\1\1\bin\Debug\net6.0-windows\1.exe
+D:\131\Semenov pavel\3zd\1\1\bin\Debug\net6.0-windows\1.deps.json
+D:\131\Semenov pavel\3zd\1\1\bin\Debug\net6.0-windows\1.runtimeconfig.json
+D:\131\Semenov pavel\3zd\1\1\bin\Debug\net6.0-windows\1.dll
+D:\131\Semenov pavel\3zd\1\1\bin\Debug\net6.0-windows\1.pdb
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.dll
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\refint\1.dll
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.pdb
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\1.genruntimeconfig.cache
+D:\131\Semenov pavel\3zd\1\1\obj\Debug\net6.0-windows\ref\1.dll
