@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Компас с ручной настройкой градусов</title>
+  <style>
+    :root{
+      --size: 300px;
+      --dial: #0f3b66;
+      --accent: #ffd27a;
+      --needle: #ff6b6b;
+      --bg: #071b33;
+    }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      background: var(--bg);
+      font-family: Inter, sans-serif;
+      color:#eaf6ff;
+    }
+
+    .compass {
+      position: relative;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 45%, #153f6b, var(--dial));
+      box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+      border: 5px solid #27496d;
+    }
+
+    .mark {
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:2px;
+      height:12px;
+      background:#a9c9e6;
+      transform-origin: 0 -45%;
+    }
+
+    .mark.major {
+      height:20px;
+      background: var(--accent);
+    }
+
+    .label {
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform-origin: 0 -46%;
+      color:#fff;
+      font-size:16px;
+      font-weight:700;
+    }
+
+    .needle-wrap {
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:100%;
+      height:100%;
+      transform:translate(-50%,-50%) rotate(0deg);
+      transition: transform 0.3s ease;
+    }
+
+    .needle {
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translateX(-50%);
+      width:0;
+      height:0;
+      border-left:10px solid transparent;
+      border-right:10px solid transparent;
+      border-bottom:110px solid var(--needle);
+    }
+
+    .pivot {
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:20px;
+      height:20px;
+      background:#ffd27a;
+      border-radius:50%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .info {
+      margin-top: 20px;
+      text-align:center;
+    }
+
+    input[type="range"] {
+      width: 250px;
+      accent-color: #42a5f5;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="compass" id="compass">
+    <div id="marks"></div>
+    <div class="needle-wrap" id="needleWrap">
+      <div class="needle"></div>
+    </div>
+    <div class="pivot"></div>
+  </div>
+
+  <div class="info">
+    <h2 id="angleText">0°</h2>
+    <input type="range" id="angleRange" min="0" max="359" value="0">
+  </div>
+
+  <script>
+    const marksContainer = document.getElementById('marks');
+    const needleWrap = document.getElementById('needleWrap');
+    const angleText = document.getElementById('angleText');
+    const range = document.getElementById('angleRange');
+
+    // создаём деления
+    for (let i = 0; i < 360; i += 15) {
+      const mark = document.createElement('div');
+      mark.classList.add('mark');
+      if (i % 90 === 0) mark.classList.add('major');
+      mark.style.transform = `translate(-50%, -50%) rotate(${i}deg) translateY(-48%)`;
+      marksContainer.appendChild(mark);
+
+      if (i % 90 === 0) {
+        const label = document.createElement('div');
+        label.classList.add('label');
+        label.textContent = (i === 0) ? 'N' : (i === 90 ? 'E' : (i === 180 ? 'S' : 'W'));
+        label.style.transform = `translate(-50%, -50%) rotate(${i}deg) translateY(-46%) rotate(${-i}deg)`;
+        marksContainer.appendChild(label);
+      }
+    }
+
+    // обработка ползунка
+    range.addEventListener('input', () => {
+      const value = parseInt(range.value);
+      needleWrap.style.transform = `translate(-50%, -50%) rotate(${-value}deg)`;
+      angleText.textContent = value + '°';
+    });
+  </script>
+
+</body>
+</html>

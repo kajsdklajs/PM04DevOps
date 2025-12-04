@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анимация уровня жидкости</title>
+  <style>
+    body {
+      background: #0e2a47;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: #fff;
+      font-family: sans-serif;
+    }
+
+    .liquid-container {
+      position: relative;
+      width: 200px;
+      height: 300px;
+      border: 4px solid #64b5f6;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(100, 181, 246, 0.5);
+      margin-bottom: 30px;
+    }
+
+    .liquid {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 50%;
+      background: linear-gradient(to top, #1e88e5, #42a5f5);
+      animation: wave 3s ease-in-out infinite alternate;
+      border-top-left-radius: 50%;
+      border-top-right-radius: 50%;
+      transition: height 1.5s ease;
+    }
+
+    @keyframes wave {
+      0% { border-top-left-radius: 40% 60%; border-top-right-radius: 60% 40%; }
+      100% { border-top-left-radius: 60% 40%; border-top-right-radius: 40% 60%; }
+    }
+
+    .label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 5px #000;
+    }
+
+    input[type="range"] {
+      width: 250px;
+      accent-color: #42a5f5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="liquid-container">
+    <div class="liquid" id="liquid"></div>
+    <div class="label" id="label">50%</div>
+  </div>
+
+  <label for="level">Уровень жидкости:</label>
+  <input type="range" id="level" min="0" max="100" value="50">
+
+  <script>
+    const liquid = document.getElementById('liquid');
+    const label = document.getElementById('label');
+    const range = document.getElementById('level');
+
+    range.addEventListener('input', () => {
+      const value = range.value;
+      liquid.style.height = value + '%';
+      label.textContent = value + '%';
+    });
+  </script>
+
+</body>
+</html>

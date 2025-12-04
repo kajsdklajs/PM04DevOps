@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Термометр</title>
+  <style>
+    :root {
+      --bg:#0f1724;
+      --card:#0b1220;
+      --glass: rgba(255,255,255,0.06);
+      --accent1:#3b82f6;
+      --accent2:#f97316;
+      --glass-border: rgba(255,255,255,0.06);
+      --text:#e6eef8;
+      --muted:rgba(230,238,248,0.6);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(59,130,246,0.08), transparent 5%), 
+                  radial-gradient(900px 400px at 90% 90%, rgba(249,115,22,0.04), transparent 5%), var(--bg);
+      font-family: Inter, Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial;
+      color:var(--text);
+      padding:32px;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid var(--glass-border);
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      border-radius:18px;
+      padding:28px;
+      width:420px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
+    }
+
+    h1{font-size:18px;margin:0 0 6px 0}
+    .value{font-weight:700;font-size:36px;line-height:1}
+    .small{font-size:12px;color:var(--muted)}
+    .btn{
+      background:var(--glass);
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.03);
+      cursor:pointer;
+      font-weight:600;
+      color:var(--text);
+    }
+    input[type=range]{width:100%;accent-color:var(--accent2)}
+
+    .thermo-wrap{display:flex;flex-direction:row;align-items:center;gap:16px}
+    .thermo-svg{width:120px;height:320px}
+
+    @media (max-width:480px){
+      .card{flex-direction:column;width:100%}
+      .thermo-wrap{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="thermo-wrap">
+      <!-- SVG -->
+      <svg class="thermo-svg" viewBox="0 0 120 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="mercuryGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#ffb86b"/>
+            <stop offset="50%" stop-color="#ff6b6b"/>
+            <stop offset="100%" stop-color="#7f1d1d"/>
+          </linearGradient>
+          <linearGradient id="tubeGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.06)" />
+            <stop offset="100%" stop-color="rgba(255,255,255,0.02)" />
+          </linearGradient>
+          <mask id="tubeMask">
+            <rect x="0" y="0" width="120" height="320" fill="black"/>
+            <g fill="white">
+              <circle cx="60" cy="260" r="34"/>
+              <rect x="52" y="36" width="16" height="204" rx="8"/>
+            </g>
+          </mask>
+        </defs>
+
+        <g>
+          <path d="M60 24c-12 0-22 10-22 22v172h44V46c0-12-10-22-22-22z" fill="url(#tubeGrad)" opacity="0.9"/>
+          <circle cx="60" cy="260" r="34" fill="rgba(255,255,255,0.05)"/>
+        </g>
+
+        <g mask="url(#tubeMask)">
+          <rect id="colorRamp" x="0" y="0" width="120" height="320" fill="url(#mercuryGrad)" />
+          <rect id="liquid" x="0" y="0" width="120" height="320" fill="url(#mercuryGrad)" 
+                style="transform-origin:60px 320px; transition: transform 700ms cubic-bezier(.2,.9,.2,1);" />
+        </g>
+
+        <g stroke="rgba(255,255,255,0.12)" stroke-width="1.6" fill="none">
+          <path d="M60 24c-12 0-22 10-22 22v172h44V46c0-12-10-22-22-22z"/>
+          <circle cx="60" cy="260" r="34"/>
+        </g>
+      </svg>
+
+      <!-- Температура рядом -->
+      <div>
+        <div class="value" id="tempDisplay">20°</div>
+        <div class="small">Температура</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn" id="cBtn" aria-pressed="true">°C</button>
+          <button class="btn" id="fBtn" aria-pressed="false">°F</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <input id="range" type="range" min="-30" max="50" value="20" />
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="btn" id="dec">–</button>
+        <button class="btn" id="inc">+</button>
+        <div class="small" style="margin-left:auto">Шкала: -30 … 50 °C</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const cMin = -30, cMax = 50;
+    const range = document.getElementById('range');
+    const tempDisplay = document.getElementById('tempDisplay');
+    const liquid = document.getElementById('liquid');
+    const cBtn = document.getElementById('cBtn');
+    const fBtn = document.getElementById('fBtn');
+    const dec = document.getElementById('dec');
+    const inc = document.getElementById('inc');
+    let mode = 'C';
+
+    const cToF = c => c*9/5+32;
+    const fToC = f => (f-32)*5/9;
+    const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+    function updateFromC(c){
+      const pct = (c - cMin) / (cMax - cMin);
+      const translateY = (1 - pct) * 320;
+      liquid.style.transform = `translateY(${translateY}px)`;
+      tempDisplay.textContent = `${Math.round(mode==='C'?c:cToF(c))}°`;
+      range.value = Math.round(c);
+    }
+
+    range.addEventListener('input', ()=>updateFromC(+range.value));
+    dec.addEventListener('click', ()=>updateFromC(clamp(+range.value-1,cMin,cMax)));
+    inc.addEventListener('click', ()=>updateFromC(clamp(+range.value+1,cMin,cMax)));
+
+    cBtn.addEventListener('click', ()=>{
+      if(mode==='C')return;
+      mode='C'; cBtn.ariaPressed=true; fBtn.ariaPressed=false;
+      updateFromC(fToC(+tempDisplay.textContent.replace('°','')));
+    });
+
+    fBtn.addEventListener('click', ()=>{
+      if(mode==='F')return;
+      mode='F'; cBtn.ariaPressed=false; fBtn.ariaPressed=true;
+      updateFromC(+range.value);
+    });
+
+    updateFromC(+range.value);
+  </script>
+</body>
+</html>

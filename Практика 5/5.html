@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Автоспидометр</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --text:#e6eef8;
+    --muted:rgba(230,238,248,0.6);
+    --good:#22c55e;
+    --medium:#facc15;
+    --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:radial-gradient(circle at 20% 30%, rgba(59,130,246,0.06), transparent 60%), var(--bg);
+    font-family:Inter, Roboto, system-ui, sans-serif;
+    color:var(--text);
+  }
+
+  .card{
+    width:420px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.6);
+    text-align:center;
+  }
+
+  h1{margin:0 0 8px;font-size:18px}
+  .gauge-wrap{display:flex;align-items:center;justify-content:center;gap:20px}
+  svg{width:300px;height:180px;overflow:visible}
+
+  .gauge-bg{stroke:rgba(255,255,255,0.08);stroke-width:18;fill:none}
+  .gauge-fill{stroke:var(--good);stroke-width:18;stroke-linecap:round;fill:none;transition:stroke 300ms;}
+  .needle{stroke:#fff;stroke-width:3;stroke-linecap:round;transform-origin:100px 100px;transition:stroke 300ms, transform 400ms cubic-bezier(.2,.8,.2,1);}
+
+  .speed{
+    font-size:44px;font-weight:700;margin-top:6px;
+  }
+  .muted{font-size:13px;color:var(--muted)}
+  input[type=range]{width:100%;margin-top:16px;accent-color:var(--good)}
+
+  /* responsive */
+  @media (max-width:420px){
+    .card{width:95%}
+    svg{width:260px;height:160px}
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Спидометр</h1>
+
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <!-- дуга фона (от -120° до +120°) -->
+        <path id="arcBg" class="gauge-bg" d="M20,140 A80,80 0 0,1 180,140" />
+        <!-- заполняемая дуга -->
+        <path id="arcFill" class="gauge-fill" d="M20,140 A80,80 0 0,1 180,140" stroke-dasharray="0" stroke-dashoffset="0" />
+        <!-- стрелка: вращается вокруг точки (100,100) -->
+        <line id="needle" class="needle" x1="100" y1="100" x2="100" y2="30" />
+        <!-- центр -->
+        <circle cx="100" cy="100" r="6" fill="#fff" />
+      </svg>
+    </div>
+
+    <div class="speed" id="speedDisplay">0</div>
+    <div class="muted">км/ч</div>
+
+    <input id="speedRange" type="range" min="0" max="220" step="1" value="0" />
+    <div class="muted" style="margin-top:8px">Ползунок задаёт целевую скорость вручную (при ручной установке авто-изменение временно приостанавливается).</div>
+  </div>
+
+<script>
+  // элементы
+  const arcFill = document.getElementById('arcFill');
+  const arcBg = document.getElementById('arcBg');
+  const needle = document.getElementById('needle');
+  const speedDisplay = document.getElementById('speedDisplay');
+  const range = document.getElementById('speedRange');
+
+  // параметры
+  const MAX_SPEED = 220;
+  const MIN_ANGLE = -120; // градусы для 0
+  const MAX_ANGLE = 120;  // градусы для max
+  // автоматика
+  let currentSpeed = 0;
+  let targetSpeed = 0;
+  let userOverrideUntil = 0; // timestamp — пока > now автомат выключен
+  const AUTO_PAUSE_MS = 5000; // пауза после ручного управления
+
+  // подготовка дуги (используем длину пути для stroke-dash)
+  const totalLen = arcBg.getTotalLength();
+  arcFill.style.strokeDasharray = totalLen;
+  // начальное: полностью скрыта (offset = length)
+  arcFill.style.strokeDashoffset = totalLen;
+
+  // утилиты
+  function speedToPct(s){
+    return Math.max(0, Math.min(1, s / MAX_SPEED));
+  }
+  function pctToAngle(p){
+    return MIN_ANGLE + p * (MAX_ANGLE - MIN_ANGLE);
+  }
+  function updateVisuals(speed){
+    const pct = speedToPct(speed);
+
+    // дуга: смещение
+    const offset = totalLen * (1 - pct);
+    arcFill.style.strokeDashoffset = offset;
+
+    // цвет дуги
+    let color = getComputedStyle(document.documentElement).getPropertyValue('--good');
+    if(speed >= 150) color = getComputedStyle(document.documentElement).getPropertyValue('--danger');
+    else if(speed >= 80) color = getComputedStyle(document.documentElement).getPropertyValue('--medium');
+    arcFill.style.stroke = color;
+    needle.style.stroke = color;
+
+    // стрелка поворачиваем вокруг (100,100)
+    const angle = pctToAngle(pct);
+    needle.style.transform = `rotate(${angle}deg)`;
+
+    // цифровой дисплей
+    speedDisplay.textContent = Math.round(speed);
+  }
+
+  // плавная интерполяция (вся логика в requestAnimationFrame)
+  function animateLoop(ts){
+    // если пользователь недавно дернул ползунок — временно следуем за slider-целью
+    const now = Date.now();
+    const paused = now < userOverrideUntil;
+
+    // если не в паузе — авто-логика корректирует targetSpeed время от времени
+    if(!paused && (Math.abs(targetSpeed - currentSpeed) < 0.5)){
+      // если цель достигнута — через случайный интервал выбрать новую цель
+      // реализация: если цель ровна текущей, с шансом поменять цель
+      if(Math.random() < 0.01){
+        // случайная цель 0..MAX_SPEED, но со смещением — чаще средние скорости
+        const r = Math.random();
+        // бимодальность: либо короткий спурт, либо спокойная скорость
+        targetSpeed = (r < 0.4) ? Math.round(20 + Math.random()*80) : Math.round(40 + Math.random()*140);
+      }
+    }
+
+    // сглаживание — чем меньше фактор, тем плавнее/медленнее изменение
+    const smoothing = 0.04; // чувствительность (0.01 очень плавно, 0.1 резче)
+    currentSpeed += (targetSpeed - currentSpeed) * smoothing;
+
+    // маленькая инерция: если очень близко — приравнять
+    if(Math.abs(currentSpeed - targetSpeed) < 0.05) currentSpeed = targetSpeed;
+
+    updateVisuals(currentSpeed);
+
+    requestAnimationFrame(animateLoop);
+  }
+
+  // старт анимации
+  requestAnimationFrame(animateLoop);
+
+  // Автоматически устанавливаем начальную целевую скорость
+  targetSpeed = 0;
+
+  // Ползунок — ручное управление
+  range.addEventListener('input', (e)=>{
+    const v = Number(e.target.value);
+    // при ручном управлении мы делаем этот v новой целью и ставим "пауза" на авто
+    targetSpeed = v;
+    userOverrideUntil = Date.now() + AUTO_PAUSE_MS;
+    // также синхронизируем currentSpeed немного быстрее, чтобы чувствовалось отклик
+    // (оставляем сглаживание в анимации)
+  });
+
+  // Если пользователь отпустил ползунок — установим цель равной ползунку (и авто возобновится через паузу)
+  range.addEventListener('change', (e)=>{
+    targetSpeed = Number(e.target.value);
+    userOverrideUntil = Date.now() + AUTO_PAUSE_MS;
+  });
+
+  // Для демонстрации: каждую пару секунд слегка меняем цель, когда авто активно
+  setInterval(()=>{
+    if(Date.now() < userOverrideUntil) return; // пользователь недавно вмешивался
+    // с небольшой вероятностью поменять цель на новую случайную или вернуть к 0
+    if(Math.random() < 0.3){
+      const r = Math.random();
+      targetSpeed = (r < 0.15) ? 0 : Math.round(30 + Math.random()*160);
+      // ограничение: если текущ очень высокий — иногда снизить
+      if(currentSpeed > 180 && Math.random() < 0.6) targetSpeed = Math.round(60 + Math.random()*80);
+    }
+  }, 1400);
+
+  // Инициализация: поставим случайную стартовую цель (чтобы не стоял на 0)
+  setTimeout(()=>{ if(userOverrideUntil < Date.now()) targetSpeed = 20 + Math.random()*80; }, 300);
+</script>
+</body>
+</html>

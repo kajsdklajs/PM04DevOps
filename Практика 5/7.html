@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Компас</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --ring: #1e293b;
+    --accent: #3b82f6;
+    --text: #e6eef8;
+    --muted: rgba(230,238,248,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 20% 30%, rgba(59,130,246,0.05), transparent 60%), var(--bg);
+    font-family: Inter, Roboto, sans-serif;
+    color: var(--text);
+  }
+
+  h1 {
+    margin-bottom: 10px;
+    font-size: 22px;
+  }
+
+  .compass {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    border: 8px solid var(--ring);
+    background: radial-gradient(circle at 50% 50%, #111827, #0b1220);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  }
+
+  .needle {
+    position: absolute;
+    width: 6px;
+    height: 100px;
+    background: linear-gradient(to bottom, #ef4444 50%, #3b82f6 50%);
+    border-radius: 3px;
+    transform-origin: 50% 80%;
+    transition: transform 0.3s ease-out;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+  }
+
+  .center-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,0.8);
+  }
+
+  .direction {
+    margin-top: 20px;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .muted {
+    color: var(--muted);
+    margin-top: 5px;
+  }
+
+  .sim-range {
+    width: 300px;
+    margin-top: 25px;
+    accent-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<h1>Компас</h1>
+
+<div class="compass">
+  <div class="needle" id="needle"></div>
+  <div class="center-dot"></div>
+</div>
+
+<div class="direction" id="dirText">0° N</div>
+<div class="muted" id="modeText">Ожидание данных…</div>
+
+<input type="range" min="0" max="360" value="0" id="simRange" class="sim-range" style="display:none;">
+
+<script>
+const needle = document.getElementById('needle');
+const dirText = document.getElementById('dirText');
+const modeText = document.getElementById('modeText');
+const simRange = document.getElementById('simRange');
+
+let usingSimulation = false;
+
+function updateCompass(angle) {
+  const deg = Math.round(angle % 360);
+  needle.style.transform = `rotate(${deg}deg)`;
+
+  let direction = 'N';
+  if (deg >= 45 && deg < 135) direction = 'E';
+  else if (deg >= 135 && deg < 225) direction = 'S';
+  else if (deg >= 225 && deg < 315) direction = 'W';
+
+  dirText.textContent = `${deg}° ${direction}`;
+}
+
+// Определяем, поддерживает ли устройство компас
+if (window.DeviceOrientationEvent) {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS: нужно запросить разрешение
+    modeText.textContent = 'Ожидание разрешения… (нажмите в любом месте)';
+    document.body.addEventListener('click', async () => {
+      try {
+        const perm = await DeviceOrientationEvent.requestPermission();
+        if (perm === 'granted') {
+          modeText.textContent = 'Компас активен (датчик устройства)';
+          window.addEventListener('deviceorientation', handleOrientation);
+        } else enableSimulation();
+      } catch {
+        enableSimulation();
+      }
+    }, { once: true });
+  } else {
+    // Android / ПК
+    window.addEventListener('deviceorientation', handleOrientation);
+    modeText.textContent = 'Компас активен (датчик устройства)';
+  }
+} else {
+  enableSimulation();
+}
+
+function handleOrientation(event) {
+  if (event.absolute === false && !event.alpha) {
+    enableSimulation();
+    return;
+  }
+  const heading = event.alpha; // 0° = север
+  updateCompass(360 - heading); // инвертируем, чтобы стрелка указывала на север
+}
+
+function enableSimulation() {
+  usingSimulation = true;
+  simRange.style.display = 'block';
+  modeText.textContent = 'Режим симуляции (ползунок)';
+  simRange.addEventListener('input', () => {
+    updateCompass(Number(simRange.value));
+  });
+  let simulated = 0;
+  function spin() {
+    if (!usingSimulation) return;
+    simulated = (simulated + 0.5) % 360;
+    simRange.value = simulated;
+    updateCompass(simulated);
+    requestAnimationFrame(spin);
+  }
+  spin();
+}
+</script>
+
+</body>
+</html>

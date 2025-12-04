@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Измеритель децибелов (dB)</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --card:#0f1724;
+    --accent:#3b82f6;
+    --warn:#f97316;
+    --danger:#ef4444;
+    --text:#e6eef8;
+    --muted:rgba(230,238,248,0.55);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:Inter, Roboto, system-ui, sans-serif;
+    background: radial-gradient(circle at 10% 10%, rgba(59,130,246,0.05), transparent 30%), var(--bg);
+    color:var(--text);
+    padding:22px;
+  }
+
+  .card{
+    width:760px;
+    max-width:95vw;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.04);
+    border-radius:14px;
+    padding:18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    display:flex;
+    gap:16px;
+    align-items:stretch;
+  }
+
+  .left, .right { flex:1; display:flex;flex-direction:column; gap:12px; }
+
+  h1{margin:0;font-size:18px}
+  .muted{color:var(--muted);font-size:13px}
+
+  /* large numeric */
+  .big{
+    font-size:44px;
+    font-weight:800;
+    letter-spacing:-1px;
+  }
+
+  /* Gauge bar */
+  .bar-wrap{
+    background:rgba(255,255,255,0.03);
+    border-radius:12px;
+    padding:12px;
+  }
+  .bar{
+    width:100%;
+    height:28px;
+    background:rgba(255,255,255,0.03);
+    border-radius:8px;
+    overflow:hidden;
+    position:relative;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .bar-fill{
+    position:absolute;
+    left:0;top:0;bottom:0;
+    width:0%;
+    background:linear-gradient(90deg,var(--accent), var(--warn));
+    transition:width 120ms linear, background 200ms linear;
+  }
+  .bar-peak{
+    position:absolute;
+    top:0;bottom:0;width:3px;background:rgba(255,255,255,0.8); right:auto;
+    transition:left 200ms linear;
+  }
+
+  /* circular visual */
+  .dial{
+    width:220px;height:220px;border-radius:50%;
+    background: conic-gradient(rgba(255,255,255,0.03), transparent);
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+    box-shadow: inset 0 6px 30px rgba(0,0,0,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .dial-ring{
+    position:absolute;inset:14px;border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.02), transparent 30%);
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;
+  }
+  .dial-needle{
+    width:2px;height:86px;background:linear-gradient(to bottom,var(--warn),var(--accent));
+    transform-origin:50% 96%;
+    border-radius:2px;
+    transform:rotate(-90deg);
+    transition:transform 160ms linear;
+    box-shadow:0 3px 8px rgba(0,0,0,0.6);
+  }
+  .dial-value{font-size:20px;font-weight:700}
+  .dial-sub{font-size:12px;color:var(--muted)}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.03);
+    color:var(--text);
+    padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;
+  }
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);font-weight:600}
+
+  label{font-size:13px;color:var(--muted)}
+
+  input[type=range]{width:100%}
+  input[type=number]{width:100px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)}
+  .row{display:flex;gap:8px;align-items:center}
+
+  .footer-note{font-size:12px;color:var(--muted)}
+  @media (max-width:880px){
+    .card{flex-direction:column}
+    .dial{width:200px;height:200px}
+  }
+</style>
+</head>
+<body>
+
+<div class="card" role="application" aria-label="Измеритель децибелов">
+  <div class="left">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h1>Измеритель децибелов</h1>
+        <div class="muted">RMS → dB (dBFS). Для реальных dB SPL используйте калибровку.</div>
+      </div>
+      <div style="text-align:right">
+        <div class="muted">Режим:</div>
+        <div id="modeLabel" class="muted">—</div>
+      </div>
+    </div>
+
+    <div class="bar-wrap" aria-hidden="false">
+      <div class="muted" style="margin-bottom:8px">Графический индикатор</div>
+      <div class="bar" id="bar">
+        <div class="bar-fill" id="barFill" aria-hidden="true"></div>
+        <div class="bar-peak" id="barPeak" style="left:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <div class="muted">тихо</div>
+        <div class="muted">громко</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+      <div>
+        <div class="muted">Текущий уровень</div>
+        <div class="big" id="dbDisplay">— dB</div>
+        <div class="muted">Примерный SPL: <span id="splDisplay">— dB</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div class="muted">Пик</div>
+        <div style="font-weight:700;font-size:18px" id="peakDisplay">— dB</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="muted">Настройки / управление</div>
+      <div class="controls" style="margin-top:8px">
+        <button class="btn" id="startBtn">Запустить микрофон</button>
+        <button class="btn secondary" id="stopBtn">Остановить</button>
+        <button class="btn secondary" id="simBtn">Режим симуляции</button>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+        <label style="min-width:120px">Калибровка (офсет, dB)</label>
+        <input type="number" id="calibInput" value="0" step="1" />
+        <div style="display:flex;gap:6px">
+          <button class="btn secondary" id="applyCalib">Применить</button>
+          <button class="btn secondary" id="autoCalib">Калибровать сейчас</button>
+        </div>
+      </div>
+
+      <div style="margin-top:8px" class="muted">
+        Советы: для абсолютного dB SPL измерения нужен эталон (генератор 94 dB SPL или эталонный шум). Нажмите "Калибровать" и введите известное значение.
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div style="display:flex;justify-content:center;align-items:center;height:100%">
+      <div class="dial" aria-hidden="true">
+        <div class="dial-ring">
+          <div class="dial-value" id="dialDb">— dB</div>
+          <div class="dial-sub">SPL ≈ <span id="dialSpl">—</span> dB</div>
+          <div style="height:12px"></div>
+          <div class="dial-needle" id="dialNeedle" style="transform:rotate(-90deg)"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <div class="muted">Симуляция</div>
+      <div class="row" style="gap:10px;margin-top:6px">
+        <label>Уровень (симуляция)</label>
+        <input type="range" id="simRange" min="-100" max="0" value="-40" />
+      </div>
+    </div>
+
+    <div style="margin-top:12px" class="footer-note">
+      Примечание: веб-API даёт сырые цифровые значения (dBFS). Для точных dB SPL требуется калибровка для конкретного микрофона.
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+  Пояснение измерений:
+  - Получаем PCM с микрофона и вычисляем RMS (корень из среднего квадрата).
+  - Переводим в dBFS: db = 20 * log10(rms). rMS максимум ~1 -> 0 dBFS; тишина -> -Infinity.
+  - Для приближённого dB SPL добавляем calibrationOffset (в dB), который задаёт пользователь.
+    calibrationOffset = knownSPL - measured_dBFS_when_shown_known_source
+*/
+
+let audioCtx = null;
+let analyser = null;
+let micStream = null;
+let rafId = null;
+let dataArray = null;
+let bufferLen = 2048;
+let calibrationOffset = 0; // пользовательский офсет в dB для приближённого SPL
+let peak = -Infinity;
+let peakTimer = 0;
+let peakDecayMs = 1200;
+let mode = 'idle'; // 'idle' | 'mic' | 'sim'
+const dbDisplay = document.getElementById('dbDisplay');
+const splDisplay = document.getElementById('splDisplay');
+const dialDb = document.getElementById('dialDb');
+const dialSpl = document.getElementById('dialSpl');
+const dialNeedle = document.getElementById('dialNeedle');
+const barFill = document.getElementById('barFill');
+const barPeak = document.getElementById('barPeak');
+const peakDisplay = document.getElementById('peakDisplay');
+const modeLabel = document.getElementById('modeLabel');
+
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const simBtn = document.getElementById('simBtn');
+const simRange = document.getElementById('simRange');
+const calibInput = document.getElementById('calibInput');
+const applyCalib = document.getElementById('applyCalib');
+const autoCalib = document.getElementById('autoCalib');
+
+function setMode(m){
+  mode = m;
+  modeLabel.textContent = m === 'mic' ? 'Микрофон' : (m === 'sim' ? 'Симуляция' : 'Остановлен');
+}
+
+function ensureAudio(){
+  if(audioCtx) return audioCtx;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = bufferLen;
+  dataArray = new Float32Array(analyser.fftSize);
+  return audioCtx;
+}
+
+async function startMic(){
+  try{
+    ensureAudio();
+    const s = await navigator.mediaDevices.getUserMedia({ audio: { channelCount:1, echoCancellation:true, noiseSuppression:true }, video:false });
+    micStream = audioCtx.createMediaStreamSource(s);
+    micStream.connect(analyser);
+    setMode('mic');
+    startLoop();
+  }catch(err){
+    alert('Не удалось получить доступ к микрофону: ' + err.message);
+    console.error(err);
+  }
+}
+
+function stopMic(){
+  if(micStream && micStream.mediaStream){
+    const tracks = micStream.mediaStream.getTracks ? micStream.mediaStream.getTracks() : [];
+    tracks.forEach(t=>t.stop && t.stop());
+  }
+  if(rafId) cancelAnimationFrame(rafId);
+  if(analyser) analyser.disconnect();
+  // оставляем audioCtx (можно reuse)
+  setMode('idle');
+  clearVisuals();
+}
+
+function clearVisuals(){
+  updateDisplays(-Infinity);
+  barFill.style.width = '0%';
+  barPeak.style.left = '0%';
+  peak = -Infinity;
+  peakDisplay.textContent = '— dB';
+}
+
+function startSimulation(){
+  // ensure audio context to reuse timing
+  ensureAudio();
+  setMode('sim');
+  startLoop();
+}
+
+function stopAll(){
+  stopMic();
+  if(mode === 'sim') {
+    // stop simulation loop by clearing raf
+    if(rafId) cancelAnimationFrame(rafId);
+    setMode('idle');
+    clearVisuals();
+  }
+}
+
+// compute RMS from Float32Array (time domain)
+function computeRMS(buf){
+  let sum = 0;
+  let len = buf.length;
+  for(let i=0;i<len;i++){
+    const v = buf[i];
+    sum += v*v;
+  }
+  return Math.sqrt(sum/len);
+}
+
+// convert RMS to dBFS
+function rmsToDb(rms){
+  const minRms = 1e-10; // avoid -Inf
+  const r = Math.max(rms, minRms);
+  return 20 * Math.log10(r);
+}
+
+// update UI with numeric and graphical values
+function updateDisplays(dbfs){
+  // dbfs is negative (<=0). We'll clamp range -100 .. 0 for display
+  const clamped = Math.max(-100, Math.min(0, dbfs));
+  const displayDbfs = Math.round(clamped);
+  dbDisplay.textContent = (displayDbfs === -100 ? '-∞' : displayDbfs) + ' dBFS';
+  // approximate SPL = dbfs + calibrationOffset
+  const approxSPL = Math.round(displayDbfs + calibrationOffset);
+  splDisplay.textContent = approxSPL + ' dB';
+  dialDb.textContent = (displayDbfs === -100 ? '-∞' : displayDbfs) + ' dB';
+  dialSpl.textContent = approxSPL + ' dB';
+
+  // bar fill percent: map -100..0 to 0..100
+  const pct = (clamped + 100) / 100 * 100;
+  barFill.style.width = pct + '%';
+
+  // needle rotate: map -100..0 -> -120deg..120deg
+  const angle = -120 + ( (clamped + 100) / 100 ) * 240;
+  dialNeedle.style.transform = `rotate(${angle}deg)`;
+
+  // peak holder
+  if(dbfs > peak) {
+    peak = dbfs;
+    peakTimer = performance.now();
+  } else {
+    // decay peak slowly
+    const elapsed = performance.now() - peakTimer;
+    if(elapsed > peakDecayMs) {
+      // decay a bit
+      peak = peak - 0.5;
+      if(peak < -100) peak = -100;
+    }
+  }
+  const peakPct = (Math.max(-100, Math.min(0, peak)) + 100) / 100 * 100;
+  barPeak.style.left = (peakPct) + '%';
+  peakDisplay.textContent = (Math.round(peak) === -100 ? '-∞' : Math.round(peak)) + ' dB';
+}
+
+// main loop (reads mic or simulation)
+let lastTime = 0;
+function startLoop(){
+  if(rafId) cancelAnimationFrame(rafId);
+  lastTime = performance.now();
+  function loop(now){
+    rafId = requestAnimationFrame(loop);
+    // sample every frame
+    let dbfs = -100;
+    if(mode === 'mic' && analyser){
+      try{
+        analyser.getFloatTimeDomainData(dataArray);
+        const rms = computeRMS(dataArray);
+        dbfs = rmsToDb(rms);
+      }catch(e){
+        console.warn('analyser error', e);
+      }
+    } else if(mode === 'sim'){
+      // use simRange value (which is in dBFS style: -100..0)
+      const val = Number(simRange.value) || -100;
+      dbfs = val;
+    } else {
+      dbfs = -100;
+    }
+    updateDisplays(dbfs);
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+// buttons
+startBtn.addEventListener('click', async ()=>{
+  await startMic();
+});
+stopBtn.addEventListener('click', ()=>{
+  stopAll();
+});
+simBtn.addEventListener('click', ()=>{
+  startSimulation();
+  setMode('sim');
+});
+
+// simulation control updates display immediately
+simRange.addEventListener('input', ()=>{
+  if(mode !== 'sim') return;
+  // immediate update happens in loop (value read)
+});
+
+// calibration apply
+applyCalib.addEventListener('click', ()=>{
+  const val = Number(calibInput.value) || 0;
+  calibrationOffset = val;
+  alert('Калибровка применена: офсет ' + calibrationOffset + ' dB добавляется к dBFS для приближённого SPL.');
+});
+
+// auto calibrate: record short sample and compute offset from user-provided known dB
+autoCalib.addEventListener('click', async ()=>{
+  // ask user for known SPL
+  const known = prompt('Введите известное значение dB SPL источника (например, 94):');
+  if(known === null) return;
+  const knownNum = Number(known);
+  if(isNaN(knownNum)){
+    alert('Неверное число');
+    return;
+  }
+  // measure for 1s
+  if(mode !== 'mic'){
+    alert('Включите микрофон перед калибровкой.');
+    return;
+  }
+  let samples = [];
+  const measureMs = 1000;
+  const start = performance.now();
+  while(performance.now() - start < measureMs){
+    analyser.getFloatTimeDomainData(dataArray);
+    samples.push(computeRMS(dataArray));
+    await new Promise(r=>setTimeout(r, 120)); // small pause
+  }
+  const avgRms = samples.reduce((a,b)=>a+b,0)/samples.length;
+  const measuredDb = rmsToDb(avgRms);
+  // calibrationOffset such that measuredDb + offset = knownNum
+  calibrationOffset = knownNum - measuredDb;
+  calibInput.value = Math.round(calibrationOffset);
+  alert('Авто-калибровка выполнена. Офсет установлен: ' + Math.round(calibrationOffset) + ' dB');
+});
+
+// graceful stop on page unload
+window.addEventListener('beforeunload', ()=>{
+  if(audioCtx && audioCtx.state !== 'closed') try{ audioCtx.close(); }catch(e){}
+});
+</script>
+</body>
+</html>

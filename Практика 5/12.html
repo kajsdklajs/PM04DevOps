@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Кассетный магнитофон — звук + шум ленты</title>
+<style>
+  :root{
+    --ui-bg: #07121f;
+    --accent: #ffb86b;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#031226,#061831);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;color:#e9f5ff}
+  header{display:flex;gap:12px;align-items:center;padding:14px}
+  .toolbar{display:flex;gap:10px;align-items:center;padding:10px;background:rgba(255,255,255,0.02);border-radius:10px}
+  select, button, input[type="range"]{background:transparent;color:inherit;border:1px solid rgba(255,255,255,0.06);padding:7px 10px;border-radius:8px}
+  button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);color:white;border:none}
+  .desktop{position:relative;height:calc(100% - 84px);padding:18px;overflow:auto}
+  .window{position: absolute; width:380px; background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent); border-radius:12px; box-shadow: 0 16px 36px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.04); user-select:none}
+  .win-header{height:44px;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:grab;border-bottom:1px solid rgba(255,255,255,0.02)}
+  .win-title{font-weight:700}
+  .btn-ctrl{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--glass);cursor:pointer}
+  .btn-ctrl.close{background:linear-gradient(180deg,#ff6b6b,#d64545)}
+  .win-body{padding:12px;display:flex;gap:12px;align-items:flex-start}
+  .cassette{width:230px;height:140px;border-radius:10px;padding:12px;position:relative;display:flex;flex-direction:column;justify-content:space-between;box-shadow: inset 0 -8px 22px rgba(0,0,0,0.45)}
+  .cassette .label{width:120px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#0e1320}
+  .spool-area{display:flex;gap:22px;align-items:center;justify-content:center;margin-top:6px}
+  .spool{width:64px;height:64px;position:relative}
+  .reel .rim{fill:rgba(0,0,0,0.12)}
+  .reel .hub{fill:rgba(255,255,255,0.95)}
+  .reel .holes{fill:rgba(0,0,0,0.2)}
+  .spinning .cassette{animation: cassette-wobble 1.2s ease-in-out infinite}
+  @keyframes cassette-wobble{0%{transform:none}50%{transform:translateY(-1px) rotate(-0.2deg)}100%{transform:none}}
+  .tape-strip{position:absolute;left:0;right:0;top:64px;height:18px;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .tape{width:78%;height:6px;border-radius:4px;background:linear-gradient(90deg,#222,#111);overflow:hidden}
+  .tape::after{content:"";position:absolute;left:0;top:0;bottom:0;width:50%;background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);transform:translateX(var(--tape-offset,0%));transition:transform 0.2s linear}
+  .controls-panel{width:120px;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .big-btn{width:56px;height:56px;border-radius:10px;border:none;display:grid;place-items:center;font-weight:800;cursor:pointer;background:linear-gradient(180deg,#1f2937,#111827);box-shadow:0 6px 12px rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.04)}
+  .small{width:40px;height:34px;border-radius:8px}
+  .meta{font-size:12px;color:#a9c9e6;text-align:center}
+  .controls-row{display:flex;gap:6px;align-items:center}
+  .progress{width:100%;-webkit-appearance:none;height:8px;border-radius:6px;background:linear-gradient(90deg,#2b6fb0,#4aa3ff);outline:none}
+  .muted{opacity:0.5}
+  .resize-handle{position:absolute;right:6px;bottom:6px;width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg, rgba(255,255,255,0.06), transparent);cursor:se-resize}
+  .hint{position:fixed;left:18px;bottom:18px;color:#9fbbe0}
+  /* cassette styles */
+  .style-maxell { --cassette-bg: linear-gradient(180deg,#fc7a5a,#d65a3c); color:#fff }
+  .style-maxell .label{background:#ffd7bf;color:#3a1b10}
+  .style-tdk { --cassette-bg: linear-gradient(180deg,#0b3b66,#0e6fb0); color:#fff }
+  .style-tdk .label{background:#bfe6ff;color:#0b2b46}
+  .style-sony { --cassette-bg: linear-gradient(180deg,#ffd27a,#f1c04f); color:#08121b }
+  .style-sony .label{background:#ffeab6;color:#2b1f10}
+  .cassette{background:var(--cassette-bg,linear-gradient(180deg,#2b2f42,#1b2130));border:1px solid rgba(0,0,0,0.45)}
+  /* responsive */
+  @media (max-width:420px){ .window{width:320px} }
+</style>
+</head>
+<body>
+<header>
+  <h1 style="margin:0 12px 0 18px;font-size:18px">Кассетный магнитофон — звук + шум</h1>
+  <div class="toolbar">
+    <label for="cass-select">Библиотека</label>
+    <select id="cass-select">
+      <option value="maxell">Maxell UR</option>
+      <option value="tdk">TDK SA</option>
+      <option value="sony">Sony HF</option>
+      <option value="basf">BASF</option>
+      <option value="memorex">Memorex</option>
+      <option value="custom">Custom</option>
+    </select>
+    <button class="primary" id="open-btn">Открыть кассету</button>
+    <button id="cascade">Упорядочить окна</button>
+  </div>
+</header>
+
+<div class="desktop" id="desktop">
+  <div class="hint">Нажми ▶ в окне кассеты — начнётся музыка и фоновый шум ленты. Можно одновременно открыть несколько кассет.</div>
+</div>
+
+<script>
+/* ========== Demo music tracks (публичные демо) ==========
+   Используем SoundHelix demo MP3 (публично доступные):
+   - https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3
+   - SoundHelix позволяет прямые ссылки для демонстрации.
+   Можно легко заменить на другие URL.
+*/
+const MUSIC_TRACKS = [
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+];
+
+/* Presets */
+const CASSETTES = {
+  maxell: { name:'Maxell UR', style:'style-maxell', label:'MAXELL', info:'UR 90' },
+  tdk: { name:'TDK SA', style:'style-tdk', label:'TDK', info:'SA' },
+  sony: { name:'Sony HF', style:'style-sony', label:'SONY', info:'HF' },
+  basf: { name:'BASF', style:'style-basf', label:'BASF', info:'Chrome' },
+  memorex: { name:'Memorex', style:'style-mem', label:'MEMOREX', info:'Studio' },
+  custom: { name:'Custom', style:'', label:'CASSETTE', info:'Custom' }
+};
+
+let zIndexCounter = 100;
+const desktop = document.getElementById('desktop');
+const openBtn = document.getElementById('open-btn');
+const cassSelect = document.getElementById('cass-select');
+const cascadeBtn = document.getElementById('cascade');
+
+openBtn.addEventListener('click', ()=> createCassetteWindow(CASSETTES[cassSelect.value]));
+cascadeBtn.addEventListener('click', cascadeWindows);
+
+/* AudioContext for noise generation (we'll create per-window nodes) */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+/* Helper: create noise node (white noise) + filtering to simulate tape hiss.
+   Returns an object with start/stop and gain control nodes.
+*/
+function createTapeNoiseNode(masterGain=0.08){
+  const ctx = audioCtx;
+  // create a buffer source with white noise (looping)
+  const bufferSize = 2 * ctx.sampleRate;
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random()*2 - 1) * 0.6;
+
+  const source = ctx.createBufferSource();
+  source.buffer = noiseBuffer;
+  source.loop = true;
+
+  // colour the noise with a lowpass + slight highpass -> hiss-like
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4000;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300;
+  const noiseGain = ctx.createGain(); noiseGain.gain.value = masterGain;
+
+  // slight amplitude modulation to simulate tape flutter
+  const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.8;
+  const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.12;
+  lfo.connect(lfoGain);
+  lfoGain.connect(noiseGain.gain);
+
+  source.connect(lp);
+  lp.connect(hp);
+  hp.connect(noiseGain);
+
+  return {
+    start: ()=> { try { source.start(); } catch(e){}; lfo.start(); },
+    stop: ()=> { try { source.stop(); } catch(e){}; try { lfo.stop(); } catch(e){}; },
+    node: noiseGain,
+    setGain: v => { noiseGain.gain.value = v; }
+  };
+}
+
+/* make element draggable/resizable */
+function makeDraggable(winEl, headerEl, resizeHandle){
+  let dragging=false, startX, startY, startLeft, startTop, resizing=false, wstart, hstart;
+  headerEl.addEventListener('pointerdown', (e)=> {
+    dragging=true;
+    headerEl.setPointerCapture(e.pointerId);
+    startX = e.clientX; startY = e.clientY;
+    const rect = winEl.getBoundingClientRect();
+    startLeft = rect.left; startTop = rect.top;
+    winEl.classList.add('active');
+    winEl.style.zIndex = ++zIndexCounter;
+  });
+  window.addEventListener('pointermove', (e)=> {
+    if (dragging){
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      winEl.style.left = (startLeft + dx) + 'px';
+      winEl.style.top = (startTop + dy) + 'px';
+    } else if (resizing){
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      winEl.style.width = Math.max(280, wstart + dx) + 'px';
+      winEl.style.height = Math.max(160, hstart + dy) + 'px';
+    }
+  });
+  window.addEventListener('pointerup', (e)=> {
+    if (dragging){ dragging=false; headerEl.releasePointerCapture && headerEl.releasePointerCapture(e.pointerId); winEl.classList.remove('active'); }
+    if (resizing){ resizing=false; resizeHandle.releasePointerCapture && resizeHandle.releasePointerCapture(e.pointerId); }
+  });
+  // resize
+  if (resizeHandle){
+    resizeHandle.addEventListener('pointerdown', (e)=> {
+      resizing=true;
+      startX = e.clientX; startY = e.clientY;
+      const cr = winEl.getBoundingClientRect();
+      wstart = cr.width; hstart = cr.height;
+      resizeHandle.setPointerCapture(e.pointerId);
+      winEl.style.zIndex = ++zIndexCounter;
+    });
+  }
+  // focus on click
+  winEl.addEventListener('pointerdown', ()=> winEl.style.zIndex = ++zIndexCounter);
+}
+
+/* Create cassette window with audio controls */
+function createCassetteWindow(preset){
+  // DOM structure
+  const win = document.createElement('div');
+  win.className = 'window ' + (preset.style || '');
+  win.style.left = (Math.random()*360 + 20) + 'px';
+  win.style.top = (Math.random()*140 + 30) + 'px';
+  win.style.zIndex = ++zIndexCounter;
+
+  // header
+  const header = document.createElement('div');
+  header.className = 'win-header';
+  header.innerHTML = `<div class="win-title">${preset.name}</div>
+    <div class="win-controls">
+      <div class="btn-ctrl" title="minimize">—</div>
+      <div class="btn-ctrl close" title="close">×</div>
+    </div>`;
+  win.appendChild(header);
+
+  // body
+  const body = document.createElement('div');
+  body.className = 'win-body';
+  body.innerHTML = `
+    <div class="cassette">
+      <div class="cassette-top">
+        <div class="label">${preset.label}</div>
+        <div style="font-size:11px;color:rgba(0,0,0,0.45);font-weight:700">${preset.info}</div>
+      </div>
+
+      <div class="spool-area">
+        <div class="spool left-spool">
+          <svg class="reel" viewBox="0 0 100 100" aria-hidden>
+            <circle class="rim" cx="50" cy="50" r="48" />
+            <g class="hub" transform="translate(50,50)">
+              <circle r="18"></circle>
+              <g class="holes">
+                <circle cx="-8" cy="-4" r="3"></circle>
+                <circle cx="9" cy="-4" r="3"></circle>
+                <circle cx="0" cy="10" r="3"></circle>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <div class="spool right-spool">
+          <svg class="reel" viewBox="0 0 100 100" aria-hidden>
+            <circle class="rim" cx="50" cy="50" r="48" />
+            <g class="hub" transform="translate(50,50)">
+              <circle r="18"></circle>
+              <g class="holes">
+                <circle cx="-8" cy="-4" r="3"></circle>
+                <circle cx="9" cy="-4" r="3"></circle>
+                <circle cx="0" cy="10" r="3"></circle>
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="tape-strip">
+        <div class="tape" style="--tape-offset:0%"></div>
+      </div>
+    </div>
+
+    <div class="controls-panel">
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+        <button class="big-btn play">▶</button>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="small prev">⏮</button>
+          <button class="small stop">■</button>
+          <button class="small next">⏭</button>
+        </div>
+      </div>
+
+      <div style="width:100%;display:flex;flex-direction:column;gap:6px;align-items:center">
+        <div class="meta time-display">0:00 / 0:00</div>
+        <input type="range" min="0" max="100" value="0" class="progress" />
+        <div class="controls-row">
+          <input type="range" min="0" max="100" value="70" class="volume" title="Громкость" />
+          <input type="range" min="0.4" max="2" step="0.01" value="1" class="speed" title="Скорость визуала" style="width:60px" />
+        </div>
+      </div>
+    </div>
+  `;
+  win.appendChild(body);
+
+  const rh = document.createElement('div'); rh.className='resize-handle';
+  win.appendChild(rh);
+  desktop.appendChild(win);
+
+  // controls
+  const closeBtn = header.querySelector('.btn-ctrl.close');
+  closeBtn.addEventListener('click', ()=> {
+    cleanup();
+    win.remove();
+  });
+
+  const playBtn = win.querySelector('.play');
+  const stopBtn = win.querySelector('.stop');
+  const prevBtn = win.querySelector('.prev');
+  const nextBtn = win.querySelector('.next');
+  const progress = win.querySelector('.progress');
+  const timeDisplay = win.querySelector('.time-display');
+  const volume = win.querySelector('.volume');
+  const speed = win.querySelector('.speed');
+  const tape = win.querySelector('.tape');
+  const leftHub = win.querySelector('.left-spool .hub');
+  const rightHub = win.querySelector('.right-spool .hub');
+
+  // create audio element for music
+  const audio = document.createElement('audio');
+  audio.preload = 'auto';
+  audio.crossOrigin = 'anonymous';
+  audio.src = MUSIC_TRACKS[Math.floor(Math.random() * MUSIC_TRACKS.length)];
+
+  // create media element source for WebAudio (so we can control volume with a gain node and also route)
+  const trackNode = audioCtx.createMediaElementSource(audio);
+  const musicGain = audioCtx.createGain();
+  musicGain.gain.value = 0.9; // base
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  trackNode.connect(musicGain);
+  musicGain.connect(masterGain);
+  // create tape noise node
+  const noise = createTapeNoiseNode(0.06);
+  noise.node.connect(masterGain);
+
+  // connect master to destination
+  masterGain.connect(audioCtx.destination);
+
+  // playback state
+  let playing = false;
+  let raf = null;
+  let lastTime = 0;
+  let virtualAngle = 0; // degrees
+  let tapeOffset = 0;
+
+  // update UI time/progress
+  function formatTime(s){
+    if (!isFinite(s)) return '0:00';
+    s = Math.max(0, Math.floor(s));
+    const m = Math.floor(s/60), sec = s%60;
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  audio.addEventListener('loadedmetadata', ()=> {
+    timeDisplay.textContent = `${formatTime(0)} / ${formatTime(audio.duration)}`;
+  });
+
+  audio.addEventListener('timeupdate', ()=> {
+    if (!progress.dragging) {
+      const pct = audio.duration ? (audio.currentTime / audio.duration * 100) : 0;
+      progress.value = pct;
+      timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+    }
+  });
+
+  // progress interactions
+  progress.addEventListener('input', ()=> {
+    const pct = parseFloat(progress.value)/100;
+    if (audio.duration) audio.currentTime = pct * audio.duration;
+  });
+  progress.addEventListener('pointerdown', ()=> { progress.dragging = true; });
+  progress.addEventListener('pointerup', ()=> { progress.dragging = false; });
+
+  // volume control (both music and noise routed through masterGain)
+  volume.addEventListener('input', ()=> {
+    const v = parseFloat(volume.value)/100;
+    masterGain.gain.value = v;
+  });
+
+  // speed slider affects visual rotation speed multiplier
+  let speedMul = parseFloat(speed.value) || 1;
+  speed.addEventListener('input', ()=> { speedMul = parseFloat(speed.value); });
+
+  // play/pause handling (must resume AudioContext on first user gesture)
+  async function startPlayback(){
+    if (audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(e){}
+    }
+    if (!playing){
+      try {
+        await audio.play();
+      } catch(e){
+        // autoplay blocked — user must click again
+      }
+      // start noise
+      try { noise.start(); } catch(e){}
+      playing = true;
+      win.classList.add('spinning');
+      playBtn.textContent = '⏸';
+      lastTime = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  }
+  function pausePlayback(){
+    if (playing){
+      audio.pause();
+      try { noise.stop(); } catch(e){}
+      playing = false;
+      win.classList.remove('spinning');
+      playBtn.textContent = '▶';
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+    }
+  }
+  function stopPlayback(){
+    pausePlayback();
+    audio.currentTime = 0;
+    progress.value = 0;
+    timeDisplay.textContent = `${formatTime(0)} / ${formatTime(audio.duration)}`;
+    tape.style.setProperty('--tape-offset','0%');
+    // reset visuals
+    virtualAngle = 0;
+    leftHub.style.transform = `rotate(0deg)`;
+    rightHub.style.transform = `rotate(0deg)`;
+  }
+
+  playBtn.addEventListener('click', ()=> {
+    if (!playing) startPlayback(); else pausePlayback();
+  });
+  stopBtn.addEventListener('click', stopPlayback);
+
+  // prev/next — just swaps track to another random demo (simple)
+  prevBtn.addEventListener('click', ()=> {
+    audio.src = MUSIC_TRACKS[Math.floor(Math.random()*MUSIC_TRACKS.length)];
+    audio.currentTime = 0;
+    if (playing) { audio.play(); }
+  });
+  nextBtn.addEventListener('click', ()=> {
+    audio.src = MUSIC_TRACKS[Math.floor(Math.random()*MUSIC_TRACKS.length)];
+    audio.currentTime = 0;
+    if (playing) { audio.play(); }
+  });
+
+  // animation loop driving reel rotation based on audio playback rate and time delta
+  function loop(ts){
+    const now = ts;
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    // use audio.playbackRate and speedMul to compute degrees per second
+    const baseRpm = 20 + (Math.random()*10); // base wander to feel organic
+    const rpm = baseRpm * (audio.playbackRate || 1) * speedMul;
+    const degPerSec = rpm * 360 / 60;
+    virtualAngle = (virtualAngle + degPerSec * dt) % 360;
+    tapeOffset = ( (parseFloat(getComputedStyle(tape).getPropertyValue('--tape-offset')) || 0) + (degPerSec * dt / 5) ) % 100;
+    // rotate hubs (opposite directions)
+    leftHub.style.transform = `rotate(${virtualAngle}deg)`;
+    rightHub.style.transform = `rotate(${-virtualAngle*0.9}deg)`;
+    tape.style.setProperty('--tape-offset', Math.round(tapeOffset) + '%');
+
+    // small idle sway when paused handled elsewhere
+    raf = requestAnimationFrame(loop);
+  }
+
+  // cleanup nodes when window closed
+  function cleanup(){
+    pausePlayback();
+    try { trackNode.disconnect(); } catch(e){}
+    try { noise.node.disconnect(); } catch(e){}
+    try { masterGain.disconnect(); } catch(e){}
+  }
+
+  // make draggable/resizable
+  makeDraggable(win, header, rh);
+
+  // initial settings
+  volume.dispatchEvent(new Event('input'));
+  speedMul = parseFloat(speed.value);
+
+  // show window
+  win.style.zIndex = ++zIndexCounter;
+
+  // store for external use if needed
+  win._audio = audio;
+  win._noise = noise;
+  win._cleanup = cleanup;
+  return win;
+}
+
+/* cascade windows */
+function cascadeWindows(){
+  const wins = Array.from(document.querySelectorAll('.window'));
+  let x=30,y=30;
+  wins.forEach((w,i)=> {
+    w.style.left = (x + i*26) + 'px';
+    w.style.top = (y + i*26) + 'px';
+    w.style.zIndex = ++zIndexCounter;
+  });
+}
+
+/* create some demo windows */
+createCassetteWindow(CASSETTES.maxell);
+createCassetteWindow(CASSETTES.tdk);
+createCassetteWindow(CASSETTES.sony);
+
+</script>
+</body>
+</html>
