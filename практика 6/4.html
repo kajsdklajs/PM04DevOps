@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Кодирование сигналов</title>
+<style>
+  body {
+    background-color: #000;
+    color: #0f0;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  label {
+    margin-bottom: 10px;
+  }
+  input[type="text"] {
+    font-size: 18px;
+    padding: 8px;
+    width: 400px;
+    margin-bottom: 20px;
+    background: #111;
+    border: 1px solid #0f0;
+    color: #0f0;
+  }
+  canvas {
+    border: 1px solid #0f0;
+    background: #000;
+    margin-bottom: 20px;
+  }
+  .desc {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #6f6;
+  }
+</style>
+</head>
+<body>
+
+<h1>Кодирование битовой последовательности</h1>
+
+<label>Введите последовательность бит (например, 0101101):</label>
+<input type="text" id="bitInput" value="010110100101" maxlength="64" />
+
+<canvas id="canvas" width="900" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const bitInput = document.getElementById("bitInput");
+
+  const HEIGHT = 400;
+  const WIDTH = 900;
+  const BIT_WIDTH = 20;
+  const MARGIN_TOP = 20;
+  const SIGNAL_HEIGHT = 50;
+
+  // Цвета для каждой кодировки
+  const colors = {
+    NRZ: "#00FF00",
+    Manchester: "#00FFFF",
+    MLT3: "#FFAA00",
+    AMI: "#FF00FF",
+    Pulse: "#FFFFFF"
+  };
+
+  function drawText(label, y, color) {
+    ctx.fillStyle = color;
+    ctx.font = "16px monospace";
+    ctx.fillText(label, 10, y + SIGNAL_HEIGHT / 2 + 5);
+  }
+
+  // Нарисовать оси для каждой линии
+  function drawAxes() {
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      let y = MARGIN_TOP + i * (SIGNAL_HEIGHT + 30);
+      ctx.beginPath();
+      ctx.moveTo(0, y + SIGNAL_HEIGHT / 2);
+      ctx.lineTo(WIDTH, y + SIGNAL_HEIGHT / 2);
+      ctx.stroke();
+    }
+  }
+
+  // NRZ - 1: high, 0: low
+  function drawNRZ(bits, y) {
+    ctx.strokeStyle = colors.NRZ;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let currentY = y + SIGNAL_HEIGHT / 2;
+    ctx.moveTo(0, currentY - (bits[0] === "1" ? SIGNAL_HEIGHT / 2 : -SIGNAL_HEIGHT / 2));
+    for (let i = 0; i < bits.length; i++) {
+      const bit = bits[i];
+      const level = bit === "1" ? currentY - SIGNAL_HEIGHT / 2 : currentY + SIGNAL_HEIGHT / 2;
+      ctx.lineTo(i * BIT_WIDTH, level);
+      ctx.lineTo((i + 1) * BIT_WIDTH, level);
+    }
+    ctx.stroke();
+    drawText("NRZ", y, colors.NRZ);
+  }
+
+  // Манчестер: 0 = High→Low, 1 = Low→High в середине бита
+  function drawManchester(bits, y) {
+    ctx.strokeStyle = colors.Manchester;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let currentY = y + SIGNAL_HEIGHT / 2;
+    // Начинаем с уровня для 1-го полубита
+    let lastLevel = bits[0] === "1" ? currentY + SIGNAL_HEIGHT / 2 : currentY - SIGNAL_HEIGHT / 2;
+    ctx.moveTo(0, lastLevel);
+    for (let i = 0; i < bits.length; i++) {
+      let bit = bits[i];
+      // Первая половина бита
+      let firstHalf = bit === "1" ? currentY + SIGNAL_HEIGHT / 2 : currentY - SIGNAL_HEIGHT / 2;
+      ctx.lineTo(i * BIT_WIDTH, firstHalf);
+      ctx.lineTo(i * BIT_WIDTH + BIT_WIDTH / 2, firstHalf);
+      // Вторая половина бита (переход)
+      let secondHalf = bit === "1" ? currentY - SIGNAL_HEIGHT / 2 : currentY + SIGNAL_HEIGHT / 2;
+      ctx.lineTo(i * BIT_WIDTH + BIT_WIDTH / 2, secondHalf);
+      ctx.lineTo((i + 1) * BIT_WIDTH, secondHalf);
+    }
+    ctx.stroke();
+    drawText("Манчестер", y, colors.Manchester);
+  }
+
+  // MLT-3: 0 - no change, 1 - цикл между 0, +, 0, -
+  // Инициализируем уровни: 0, +1, 0, -1
+  function drawMLT3(bits, y) {
+    ctx.strokeStyle = colors.MLT3;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const levels = [0, 1, 0, -1]; // уровни MLT-3
+    let currentLevelIndex = 0; // начинаем с 0
+    let currentY = y + SIGNAL_HEIGHT / 2;
+    let lastLevel = levels[currentLevelIndex];
+
+    ctx.moveTo(0, currentY - lastLevel * (SIGNAL_HEIGHT / 2));
+
+    for (let i = 0; i < bits.length; i++) {
+      if (bits[i] === "1") {
+        // меняем уровень (следующий в цикле)
+        currentLevelIndex = (currentLevelIndex + 1) % levels.length;
+      }
+      lastLevel = levels[currentLevelIndex];
+      ctx.lineTo(i * BIT_WIDTH, currentY - lastLevel * (SIGNAL_HEIGHT / 2));
+      ctx.lineTo((i + 1) * BIT_WIDTH, currentY - lastLevel * (SIGNAL_HEIGHT / 2));
+    }
+    ctx.stroke();
+    drawText("MLT-3", y, colors.MLT3);
+  }
+
+  // AMI: 0 = 0 уровень, 1 = чередующиеся +1 и -1 уровни
+  function drawAMI(bits, y) {
+    ctx.strokeStyle = colors.AMI;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    let currentY = y + SIGNAL_HEIGHT / 2;
+    let lastLevel = 0;
+    let polarity = 1; // Начинаем с положительной полярности
+
+    ctx.moveTo(0, currentY);
+
+    for (let i = 0; i < bits.length; i++) {
+      const bit = bits[i];
+      let level;
+      if (bit === "0") {
+        level = 0;
+      } else {
+        polarity = -polarity;
+        level = polarity;
+      }
+      ctx.lineTo(i * BIT_WIDTH, currentY - lastLevel * (SIGNAL_HEIGHT / 2));
+      ctx.lineTo(i * BIT_WIDTH, currentY - level * (SIGNAL_HEIGHT / 2));
+      ctx.lineTo((i + 1) * BIT_WIDTH, currentY - level * (SIGNAL_HEIGHT / 2));
+      lastLevel = level;
+    }
+    ctx.stroke();
+    drawText("AMI", y, colors.AMI);
+  }
+
+  // Импульсное кодирование (обычно это прямоугольный импульс для 1, 0 - ноль)
+  // Покажем как высокий импульс посередине бита для 1, низкий уровень для 0
+  function drawPulse(bits, y) {
+    ctx.strokeStyle = colors.Pulse;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    let currentY = y + SIGNAL_HEIGHT / 2;
+    ctx.moveTo(0, currentY);
+
+    for (let i = 0; i < bits.length; i++) {
+      const bit = bits[i];
+      const baseX = i * BIT_WIDTH;
+      const midX = baseX + BIT_WIDTH / 2;
+      // низкий уровень по умолчанию
+      ctx.lineTo(baseX, currentY);
+      if (bit === "1") {
+        ctx.lineTo(baseX + BIT_WIDTH / 4, currentY - SIGNAL_HEIGHT / 2);
+        ctx.lineTo(baseX + (BIT_WIDTH * 3) / 4, currentY - SIGNAL_HEIGHT / 2);
+        ctx.lineTo(baseX + BIT_WIDTH, currentY);
+      } else {
+        ctx.lineTo(baseX + BIT_WIDTH, currentY);
+      }
+    }
+    ctx.stroke();
+    drawText("Импульсное кодирование", y, colors.Pulse);
+  }
+
+  // Основная функция отрисовки всех кодировок
+  function drawSignals(bits) {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    drawAxes();
+
+    drawNRZ(bits, MARGIN_TOP + 0 * (SIGNAL_HEIGHT + 30));
+    drawManchester(bits, MARGIN_TOP + 1 * (SIGNAL_HEIGHT + 30));
+    drawMLT3(bits, MARGIN_TOP + 2 * (SIGNAL_HEIGHT + 30));
+    drawAMI(bits, MARGIN_TOP + 3 * (SIGNAL_HEIGHT + 30));
+    drawPulse(bits, MARGIN_TOP + 4 * (SIGNAL_HEIGHT + 30));
+  }
+
+  // Обработка ввода - фильтруем только 0 и 1
+  bitInput.addEventListener("input", () => {
+    let filtered = bitInput.value.replace(/[^01]/g, "");
+    if (filtered !== bitInput.value) {
+      bitInput.value = filtered;
+    }
+    drawSignals(filtered);
+  });
+
+  // Инициализация при загрузке
+  drawSignals(bitInput.value);
+</script>
+
+</body>
+</html>

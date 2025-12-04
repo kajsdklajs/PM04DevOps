@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Симулятор случайных 4 байт</title>
+<style>
+  body {
+    background: #0c0c0c;
+    color: #0f0;
+    font-family: "Consolas", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+
+  h2 {
+    color: #9f9;
+    text-shadow: 0 0 10px #0f0;
+    margin-bottom: 15px;
+  }
+
+  .bytes {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .byte {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .bit {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #0f0;
+    border-radius: 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 4px #020;
+  }
+
+  .bit.on {
+    background: #0f0;
+    color: #000;
+    box-shadow: 0 0 12px #0f0;
+    transform: scale(1.05);
+  }
+
+  .byte-label {
+    text-align: center;
+    font-size: 13px;
+    color: #9f9;
+  }
+
+  button {
+    background: #111;
+    border: 1px solid #0f0;
+    color: #0f0;
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    background: #0f0;
+    color: #000;
+    box-shadow: 0 0 15px #0f0;
+  }
+
+  .output {
+    margin-top: 15px;
+    font-size: 15px;
+    color: #9f9;
+    text-shadow: 0 0 5px #0f0;
+  }
+</style>
+</head>
+<body>
+
+<h2>Генератор случайных бит (4 байта)</h2>
+
+<div class="bytes" id="byteContainer"></div>
+
+<button id="generateBtn">Сгенерировать 32 бита</button>
+
+<div class="output" id="outputHex">HEX: —</div>
+
+<script>
+  const container = document.getElementById("byteContainer");
+  const outputHex = document.getElementById("outputHex");
+
+  // Создаем 4 байта по 8 бит
+  const bytes = [];
+  for (let i = 0; i < 4; i++) {
+    const byteDiv = document.createElement("div");
+    byteDiv.className = "byte";
+    const bits = [];
+
+    for (let j = 7; j >= 0; j--) {
+      const bit = document.createElement("div");
+      bit.className = "bit";
+      bit.textContent = "0";
+      bit.dataset.state = "0";
+      bit.addEventListener("click", () => {
+        bit.dataset.state = bit.dataset.state === "1" ? "0" : "1";
+        bit.textContent = bit.dataset.state;
+        bit.classList.toggle("on");
+        updateHex();
+      });
+      byteDiv.appendChild(bit);
+      bits.push(bit);
+    }
+
+    const label = document.createElement("div");
+    label.className = "byte-label";
+    label.textContent = `Байт ${i + 1}`;
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(byteDiv);
+    wrapper.appendChild(label);
+    container.appendChild(wrapper);
+
+    bytes.push(bits);
+  }
+
+  function randomizeBits() {
+    bytes.forEach(bits => {
+      bits.forEach(bit => {
+        const val = Math.random() > 0.5 ? "1" : "0";
+        bit.dataset.state = val;
+        bit.textContent = val;
+        bit.classList.toggle("on", val === "1");
+      });
+    });
+    updateHex();
+  }
+
+  function updateHex() {
+    const allBits = bytes.flat().map(bit => bit.dataset.state).join("");
+    const hex = parseInt(allBits, 2).toString(16).toUpperCase().padStart(8, "0");
+    outputHex.textContent = `HEX: 0x${hex}`;
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", randomizeBits);
+  randomizeBits();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Демонстрация FSK-модуляции</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    text-align: center;
+  }
+  canvas {
+    background: #000;
+    border: 1px solid #555;
+    margin-top: 20px;
+  }
+  .controls {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 16px;
+    width: 200px;
+  }
+  input[type="range"], input[type="text"] {
+    width: 100%;
+    margin-top: 5px;
+  }
+  .value {
+    margin-top: 4px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Демонстрация FSK-модуляции</h1>
+
+<div class="controls">
+  <label>
+    Частота для 0 (Hz)
+    <input type="range" id="freq0" min="50" max="500" step="1" value="100" />
+    <div class="value" id="freq0Val">100</div>
+  </label>
+
+  <label>
+    Частота для 1 (Hz)
+    <input type="range" id="freq1" min="50" max="500" step="1" value="300" />
+    <div class="value" id="freq1Val">300</div>
+  </label>
+
+  <label>
+    Скорость передачи (бит/с)
+    <input type="range" id="bitrate" min="1" max="20" step="1" value="5" />
+    <div class="value" id="bitrateVal">5</div>
+  </label>
+
+  <label>
+    Последовательность бит
+    <input type="text" id="bitSeq" value="0101101" maxlength="32" />
+  </label>
+</div>
+
+<canvas id="graph" width="900" height="300"></canvas>
+
+<script>
+  const canvas = document.getElementById('graph');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = 50;
+
+  const freq0Input = document.getElementById('freq0');
+  const freq1Input = document.getElementById('freq1');
+  const bitrateInput = document.getElementById('bitrate');
+  const bitSeqInput = document.getElementById('bitSeq');
+
+  const freq0Val = document.getElementById('freq0Val');
+  const freq1Val = document.getElementById('freq1Val');
+  const bitrateVal = document.getElementById('bitrateVal');
+
+  // Визуализация времени (сек)
+  function xToCanvas(t, totalDuration) {
+    return margin + (t / totalDuration) * (width - 2 * margin);
+  }
+
+  function yToCanvas(y) {
+    // y в диапазоне [-1,1]
+    return height - margin - ((y + 1) / 2) * (height - 2 * margin);
+  }
+
+  function drawAxes(totalDuration) {
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+
+    // Ось X
+    ctx.beginPath();
+    ctx.moveTo(margin, yToCanvas(0));
+    ctx.lineTo(width - margin, yToCanvas(0));
+    ctx.stroke();
+
+    // Ось Y
+    ctx.beginPath();
+    ctx.moveTo(margin, margin);
+    ctx.lineTo(margin, height - margin);
+    ctx.stroke();
+
+    ctx.fillStyle = '#888';
+    ctx.font = '12px monospace';
+
+    // Метки по X (в мс)
+    const steps = 8;
+    for(let i=0; i<=steps; i++){
+      let t = i * totalDuration / steps;
+      let xPos = xToCanvas(t, totalDuration);
+      ctx.fillText((t*1000).toFixed(1) + " ms", xPos - 25, yToCanvas(0) + 20);
+    }
+
+    // Метки по Y
+    ctx.fillText('1', margin - 20, yToCanvas(1) + 4);
+    ctx.fillText('0', margin - 20, yToCanvas(0) + 4);
+    ctx.fillText('-1', margin - 25, yToCanvas(-1) + 4);
+  }
+
+  function drawFSKSignal(bitSeq, freq0, freq1, bitrate) {
+    const bitDuration = 1 / bitrate;
+    const totalDuration = bitDuration * bitSeq.length;
+
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    for(let px = margin; px <= width - margin; px++) {
+      let t = ((px - margin) / (width - 2 * margin)) * totalDuration;
+      let bitIndex = Math.floor(t / bitDuration);
+      if(bitIndex >= bitSeq.length) bitIndex = bitSeq.length - 1;
+      let bit = bitSeq[bitIndex];
+      let freq = bit === '1' ? freq1 : freq0;
+
+      let y = Math.sin(2 * Math.PI * freq * t);
+      let py = yToCanvas(y);
+
+      if(px === margin) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Рисуем границы битов
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    for(let i = 0; i <= bitSeq.length; i++) {
+      let x = xToCanvas(i * bitDuration, totalDuration);
+      ctx.beginPath();
+      ctx.moveTo(x, margin);
+      ctx.lineTo(x, height - margin);
+      ctx.stroke();
+    }
+
+    // Рисуем уровни битов (0 или 1) сверху
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px monospace';
+    for(let i=0; i < bitSeq.length; i++) {
+      let x = xToCanvas((i + 0.5) * bitDuration, totalDuration);
+      ctx.fillText(bitSeq[i], x - 5, margin - 10);
+    }
+  }
+
+  function draw() {
+    const freq0 = parseInt(freq0Input.value);
+    const freq1 = parseInt(freq1Input.value);
+    const bitrate = parseInt(bitrateInput.value);
+    let bitSeq = bitSeqInput.value.trim();
+
+    // Ограничим последовательность только 0 и 1
+    bitSeq = bitSeq.replace(/[^01]/g, '');
+    bitSeqInput.value = bitSeq;
+
+    freq0Val.textContent = freq0;
+    freq1Val.textContent = freq1;
+    bitrateVal.textContent = bitrate;
+
+    ctx.clearRect(0, 0, width, height);
+    const bitDuration = 1 / bitrate;
+    const totalDuration = bitDuration * bitSeq.length;
+
+    drawAxes(totalDuration);
+    drawFSKSignal(bitSeq, freq0, freq1, bitrate);
+  }
+
+  freq0Input.addEventListener('input', draw);
+  freq1Input.addEventListener('input', draw);
+  bitrateInput.addEventListener('input', draw);
+  bitSeqInput.addEventListener('input', draw);
+
+  draw();
+</script>
+
+</body>
+</html>

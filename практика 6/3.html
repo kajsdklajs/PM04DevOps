@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Генератор случайных 4 байт с контрольной суммой</title>
+<style>
+  body {
+    background: #0b0b0b;
+    color: #0f0;
+    font-family: "Consolas", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+
+  h2 {
+    color: #9f9;
+    text-shadow: 0 0 10px #0f0;
+    margin-bottom: 15px;
+  }
+
+  .bytes {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .byte {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .bit {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #0f0;
+    border-radius: 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 4px #020;
+  }
+
+  .bit.on {
+    background: #0f0;
+    color: #000;
+    box-shadow: 0 0 12px #0f0;
+    transform: scale(1.05);
+  }
+
+  .byte-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .byte-info {
+    margin-top: 5px;
+    color: #9f9;
+    font-size: 13px;
+  }
+
+  button {
+    background: #111;
+    border: 1px solid #0f0;
+    color: #0f0;
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    background: #0f0;
+    color: #000;
+    box-shadow: 0 0 15px #0f0;
+  }
+
+  .output {
+    margin-top: 20px;
+    font-size: 15px;
+    color: #9f9;
+    text-shadow: 0 0 5px #0f0;
+    text-align: center;
+  }
+
+  .checksum {
+    margin-top: 10px;
+    font-size: 16px;
+    color: #ff0;
+    text-shadow: 0 0 8px #ff0;
+  }
+</style>
+</head>
+<body>
+
+<h2>Генератор случайных 4 байт (32 бита) с контрольной суммой</h2>
+
+<div class="bytes" id="byteContainer"></div>
+
+<button id="generateBtn">Сгенерировать случайные биты</button>
+
+<div class="output" id="outputTotal"></div>
+<div class="checksum" id="checksumDisplay"></div>
+
+<script>
+  const container = document.getElementById("byteContainer");
+  const outputTotal = document.getElementById("outputTotal");
+  const checksumDisplay = document.getElementById("checksumDisplay");
+  const bytes = [];
+
+  // Создаём 4 байта по 8 бит
+  for (let i = 0; i < 4; i++) {
+    const byteDiv = document.createElement("div");
+    byteDiv.className = "byte";
+    const bits = [];
+
+    for (let j = 7; j >= 0; j--) {
+      const bit = document.createElement("div");
+      bit.className = "bit";
+      bit.textContent = "0";
+      bit.dataset.state = "0";
+      bit.addEventListener("click", () => {
+        bit.dataset.state = bit.dataset.state === "1" ? "0" : "1";
+        bit.textContent = bit.dataset.state;
+        bit.classList.toggle("on");
+        updateAll();
+      });
+      byteDiv.appendChild(bit);
+      bits.push(bit);
+    }
+
+    const info = document.createElement("div");
+    info.className = "byte-info";
+    info.textContent = "00000000";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "byte-block";
+    wrapper.appendChild(byteDiv);
+    wrapper.appendChild(info);
+    container.appendChild(wrapper);
+
+    bytes.push({ bits, info });
+  }
+
+  // Обновляем двоичные представления и контрольную сумму
+  function updateAll() {
+    let totalBits = "";
+    let checksum = 0;
+
+    bytes.forEach(byte => {
+      const bitStr = byte.bits.map(b => b.dataset.state).join("");
+      const dec = parseInt(bitStr, 2);
+      byte.info.textContent = bitStr;
+      totalBits += bitStr;
+      checksum = (checksum + dec) & 0xFF; // сумма байтов по модулю 256
+    });
+
+    const checksumHex = checksum.toString(16).toUpperCase().padStart(2, "0");
+    outputTotal.textContent = `Все 32 бита: ${totalBits}`;
+    checksumDisplay.textContent = `Контрольная сумма → DEC: ${checksum} | HEX: 0x${checksumHex}`;
+  }
+
+  // Случайная генерация битов
+  function randomizeBits() {
+    bytes.forEach(byte => {
+      byte.bits.forEach(bit => {
+        const val = Math.random() > 0.5 ? "1" : "0";
+        bit.dataset.state = val;
+        bit.textContent = val;
+        bit.classList.toggle("on", val === "1");
+      });
+    });
+    updateAll();
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", randomizeBits);
+
+  // Инициализация
+  randomizeBits();
+</script>
+
+</body>
+</html>

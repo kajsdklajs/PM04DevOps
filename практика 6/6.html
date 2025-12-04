@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Графики sin и cos</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  canvas {
+    background: #000;
+    border: 1px solid #555;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Графики sin(x) и cos(x)</h1>
+<canvas id="graph" width="800" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('graph');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Настройки графика
+  const margin = 50;
+  const xStart = 0;
+  const xEnd = 4 * Math.PI;  // 2 полных периода sin/cos
+  const yMin = -1.5;
+  const yMax = 1.5;
+
+  // Преобразование координат из функции в координаты на холсте
+  function xToCanvas(x) {
+    return margin + (x - xStart) / (xEnd - xStart) * (width - 2 * margin);
+  }
+
+  function yToCanvas(y) {
+    return height - margin - (y - yMin) / (yMax - yMin) * (height - 2 * margin);
+  }
+
+  // Отрисовка осей
+  function drawAxes() {
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 1;
+
+    // Ось X
+    ctx.beginPath();
+    ctx.moveTo(margin, yToCanvas(0));
+    ctx.lineTo(width - margin, yToCanvas(0));
+    ctx.stroke();
+
+    // Ось Y
+    ctx.beginPath();
+    ctx.moveTo(xToCanvas(0), margin);
+    ctx.lineTo(xToCanvas(0), height - margin);
+    ctx.stroke();
+
+    // Метки на осях (примерно)
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px monospace';
+    for(let i = 0; i <= 4; i++) {
+      let xVal = i * Math.PI;
+      let xPos = xToCanvas(xVal);
+      ctx.fillText((i === 0 ? '0' : (i + 'π')), xPos - 10, yToCanvas(0) + 20);
+    }
+
+    for(let y = -1; y <= 1; y++) {
+      let yPos = yToCanvas(y);
+      ctx.fillText(y.toString(), xToCanvas(0) - 30, yPos + 4);
+    }
+  }
+
+  // Рисуем график функции
+  function drawFunction(func, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let px = 0; px <= width; px++) {
+      // Переводим px в x в диапазоне функции
+      let x = xStart + (px - margin) / (width - 2 * margin) * (xEnd - xStart);
+      if (x < xStart) continue;
+      if (x > xEnd) break;
+      let y = func(x);
+      let py = yToCanvas(y);
+      if(px === margin) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Очистка
+  ctx.clearRect(0, 0, width, height);
+
+  drawAxes();
+  drawFunction(Math.sin, 'lime');
+  drawFunction(Math.cos, 'cyan');
+
+  // Легенда
+  ctx.fillStyle = 'lime';
+  ctx.fillRect(width - 120, margin, 15, 15);
+  ctx.fillStyle = '#eee';
+  ctx.fillText('sin(x)', width - 100, margin + 12);
+
+  ctx.fillStyle = 'cyan';
+  ctx.fillRect(width - 120, margin + 25, 15, 15);
+  ctx.fillStyle = '#eee';
+  ctx.fillText('cos(x)', width - 100, margin + 37);
+</script>
+
+</body>
+</html>

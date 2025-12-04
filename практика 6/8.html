@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Сложение 5 гармонических колебаний</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+  }
+  canvas {
+    background: #000;
+    border: 1px solid #555;
+    display: block;
+    margin: 20px auto;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .oscillator {
+    background: #333;
+    padding: 10px;
+    border-radius: 6px;
+    width: 180px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  input[type="range"] {
+    width: 100%;
+  }
+  .color-box {
+    width: 15px;
+    height: 15px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Сложение 5 гармонических колебаний</h1>
+
+<div class="controls" id="controls">
+  <!-- Контролы создадутся скриптом -->
+</div>
+
+<canvas id="graph" width="900" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('graph');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const margin = 50;
+  const xStart = 0;
+  const xEnd = 4 * Math.PI; // 2 полных периода
+
+  // Цвета для колебаний и суммы
+  const colors = ['#ff5555', '#55ff55', '#5555ff', '#ffff55', '#55ffff'];
+  const sumColor = '#ffffff';
+
+  // Создаем 5 осцилляторов с амплитудой и частотой
+  let oscillators = [];
+  for(let i = 0; i < 5; i++) {
+    oscillators.push({
+      amplitude: 1,
+      frequency: 1
+    });
+  }
+
+  // Создаем интерфейс контролов
+  const controlsDiv = document.getElementById('controls');
+
+  oscillators.forEach((osc, idx) => {
+    const oscDiv = document.createElement('div');
+    oscDiv.classList.add('oscillator');
+    oscDiv.innerHTML = `
+      <div><span class="color-box" style="background:${colors[idx]}"></span>Колебание ${idx+1}</div>
+      <label>Амплитуда: <span id="ampVal${idx}">1.0</span>
+        <input type="range" id="amp${idx}" min="0" max="5" step="0.1" value="1" />
+      </label>
+      <label>Частота: <span id="freqVal${idx}">1.0</span>
+        <input type="range" id="freq${idx}" min="0.1" max="5" step="0.1" value="1" />
+      </label>
+    `;
+    controlsDiv.appendChild(oscDiv);
+
+    // Связываем с данными
+    document.getElementById(`amp${idx}`).addEventListener('input', (e) => {
+      osc.amplitude = parseFloat(e.target.value);
+      document.getElementById(`ampVal${idx}`).textContent = osc.amplitude.toFixed(1);
+      draw();
+    });
+    document.getElementById(`freq${idx}`).addEventListener('input', (e) => {
+      osc.frequency = parseFloat(e.target.value);
+      document.getElementById(`freqVal${idx}`).textContent = osc.frequency.toFixed(1);
+      draw();
+    });
+  });
+
+  function yToCanvas(y, amplitudeMax) {
+    return height - margin - ((y + amplitudeMax) / (2 * amplitudeMax)) * (height - 2 * margin);
+  }
+
+  function xToCanvas(x) {
+    return margin + ((x - xStart) / (xEnd - xStart)) * (width - 2 * margin);
+  }
+
+  function drawAxes(amplitudeMax) {
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+
+    // Ось X
+    ctx.beginPath();
+    ctx.moveTo(margin, yToCanvas(0, amplitudeMax));
+    ctx.lineTo(width - margin, yToCanvas(0, amplitudeMax));
+    ctx.stroke();
+
+    // Ось Y
+    ctx.beginPath();
+    ctx.moveTo(margin, margin);
+    ctx.lineTo(margin, height - margin);
+    ctx.stroke();
+
+    ctx.fillStyle = '#888';
+    ctx.font = '12px monospace';
+    for(let i = 0; i <= 4; i++) {
+      let xVal = i * Math.PI;
+      let xPos = xToCanvas(xVal);
+      ctx.fillText(i === 0 ? '0' : (i + 'π'), xPos - 10, yToCanvas(0, amplitudeMax) + 20);
+    }
+    ctx.fillText(`-${amplitudeMax.toFixed(1)}`, margin - 40, yToCanvas(-amplitudeMax, amplitudeMax) + 4);
+    ctx.fillText('0', margin - 20, yToCanvas(0, amplitudeMax) + 4);
+    ctx.fillText(`${amplitudeMax.toFixed(1)}`, margin - 40, yToCanvas(amplitudeMax, amplitudeMax) + 4);
+  }
+
+  function drawFunction(amplitude, frequency, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    for(let px = margin; px <= width - margin; px++) {
+      let x = xStart + ((px - margin) / (width - 2 * margin)) * (xEnd - xStart);
+      let y = amplitude * Math.sin(frequency * x);
+      let py = yToCanvas(y, amplitudeMaxGlobal);
+
+      if(px === margin) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  function drawSumFunction(oscillators) {
+    ctx.strokeStyle = sumColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    for(let px = margin; px <= width - margin; px++) {
+      let x = xStart + ((px - margin) / (width - 2 * margin)) * (xEnd - xStart);
+      let ySum = 0;
+      oscillators.forEach(o => ySum += o.amplitude * Math.sin(o.frequency * x));
+      let py = yToCanvas(ySum, amplitudeMaxGlobal);
+
+      if(px === margin) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Вычисляем максимальную амплитуду для масштабирования
+  function getMaxAmplitude() {
+    let sumAmp = oscillators.reduce((acc, o) => acc + o.amplitude, 0);
+    return Math.max(5, sumAmp); // минимум 5 для удобства
+  }
+
+  let amplitudeMaxGlobal = getMaxAmplitude();
+
+  function draw() {
+    amplitudeMaxGlobal = getMaxAmplitude();
+    ctx.clearRect(0, 0, width, height);
+    drawAxes(amplitudeMaxGlobal);
+
+    // Рисуем каждый сигнал
+    oscillators.forEach((o, i) => {
+      if(o.amplitude > 0)
+        drawFunction(o.amplitude, o.frequency, colors[i]);
+    });
+
+    // Рисуем сумму
+    drawSumFunction(oscillators);
+  }
+
+  draw();
+
+</script>
+
+</body>
+</html>

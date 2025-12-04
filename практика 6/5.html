@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Коды символов клавиш</title>
+<style>
+  body {
+    font-family: monospace;
+    background: #111;
+    color: #0f0;
+    padding: 20px;
+  }
+  h2 {
+    color: #6f6;
+  }
+  .output {
+    margin-top: 20px;
+    font-size: 18px;
+  }
+  .code-row {
+    margin: 8px 0;
+  }
+  .label {
+    font-weight: bold;
+    color: #9f9;
+  }
+</style>
+</head>
+<body>
+
+<h2>Нажмите любую клавишу</h2>
+<div class="output" id="output">
+  <div>Символ: <span id="charDisplay"></span></div>
+  <div class="code-row"><span class="label">ASCII:</span> <span id="asciiCode">-</span></div>
+  <div class="code-row"><span class="label">Unicode (UTF-16):</span> <span id="unicodeCode">-</span></div>
+  <div class="code-row"><span class="label">Windows-1251 (CP1251):</span> <span id="cp1251Code">-</span></div>
+  <div class="code-row"><span class="label">CP866:</span> <span id="cp866Code">-</span></div>
+</div>
+
+<script>
+  // Таблицы для CP1251 и CP866 (карта Unicode -> код в CP1251/CP866)
+  // Для простоты сделаем обратное отображение: Unicode -> CP1251/CP866
+  // Полные таблицы очень большие, тут будут сокращённые для русских букв и латиницы
+
+  // Карта Unicode к CP1251 (часть)
+  const unicodeToCP1251 = {
+    0x0410: 0xC0, // А
+    0x0411: 0xC1, // Б
+    0x0412: 0xC2, // В
+    0x0413: 0xC3, // Г
+    0x0414: 0xC4, // Д
+    0x0415: 0xC5, // Е
+    0x0401: 0xA8, // Ё
+    0x0416: 0xC6, // Ж
+    0x0417: 0xC7, // З
+    0x0418: 0xC8, // И
+    0x0419: 0xC9, // Й
+    0x041A: 0xCA, // К
+    0x041B: 0xCB, // Л
+    0x041C: 0xCC, // М
+    0x041D: 0xCD, // Н
+    0x041E: 0xCE, // О
+    0x041F: 0xCF, // П
+    0x0420: 0xD0, // Р
+    0x0421: 0xD1, // С
+    0x0422: 0xD2, // Т
+    0x0423: 0xD3, // У
+    0x0424: 0xD4, // Ф
+    0x0425: 0xD5, // Х
+    0x0426: 0xD6, // Ц
+    0x0427: 0xD7, // Ч
+    0x0428: 0xD8, // Ш
+    0x0429: 0xD9, // Щ
+    0x042A: 0xDA, // Ъ
+    0x042B: 0xDB, // Ы
+    0x042C: 0xDC, // Ь
+    0x042D: 0xDD, // Э
+    0x042E: 0xDE, // Ю
+    0x042F: 0xDF, // Я
+    0x0430: 0xE0, // а
+    0x0431: 0xE1, // б
+    0x0432: 0xE2, // в
+    0x0433: 0xE3, // г
+    0x0434: 0xE4, // д
+    0x0435: 0xE5, // е
+    0x0451: 0xB8, // ё
+    0x0436: 0xE6, // ж
+    0x0437: 0xE7, // з
+    0x0438: 0xE8, // и
+    0x0439: 0xE9, // й
+    0x043A: 0xEA, // к
+    0x043B: 0xEB, // л
+    0x043C: 0xEC, // м
+    0x043D: 0xED, // н
+    0x043E: 0xEE, // о
+    0x043F: 0xEF, // п
+    0x0440: 0xF0, // р
+    0x0441: 0xF1, // с
+    0x0442: 0xF2, // т
+    0x0443: 0xF3, // у
+    0x0444: 0xF4, // ф
+    0x0445: 0xF5, // х
+    0x0446: 0xF6, // ц
+    0x0447: 0xF7, // ч
+    0x0448: 0xF8, // ш
+    0x0449: 0xF9, // щ
+    0x044A: 0xFA, // ъ
+    0x044B: 0xFB, // ы
+    0x044C: 0xFC, // ь
+    0x044D: 0xFD, // э
+    0x044E: 0xFE, // ю
+    0x044F: 0xFF, // я
+    // Латиница базовая
+    0x0041: 0x41,
+    0x0042: 0x42,
+    0x0043: 0x43,
+    0x0061: 0x61,
+    0x0062: 0x62,
+    0x0063: 0x63,
+  };
+
+  // Карта Unicode к CP866 (часть)
+  const unicodeToCP866 = {
+    0x0410: 0x80, // А
+    0x0411: 0x81, // Б
+    0x0412: 0x82, // В
+    0x0413: 0x83, // Г
+    0x0414: 0x84, // Д
+    0x0415: 0x85, // Е
+    0x0401: 0xA2, // Ё
+    0x0416: 0x86, // Ж
+    0x0417: 0x87, // З
+    0x0418: 0x88, // И
+    0x0419: 0x89, // Й
+    0x041A: 0x8A, // К
+    0x041B: 0x8B, // Л
+    0x041C: 0x8C, // М
+    0x041D: 0x8D, // Н
+    0x041E: 0x8E, // О
+    0x041F: 0x8F, // П
+    0x0420: 0x90, // Р
+    0x0421: 0x91, // С
+    0x0422: 0x92, // Т
+    0x0423: 0x93, // У
+    0x0424: 0x94, // Ф
+    0x0425: 0x95, // Х
+    0x0426: 0x96, // Ц
+    0x0427: 0x97, // Ч
+    0x0428: 0x98, // Ш
+    0x0429: 0x99, // Щ
+    0x042A: 0x9A, // Ъ
+    0x042B: 0x9B, // Ы
+    0x042C: 0x9C, // Ь
+    0x042D: 0x9D, // Э
+    0x042E: 0x9E, // Ю
+    0x042F: 0x9F, // Я
+    0x0430: 0xA0, // а
+    0x0431: 0xA1, // б
+    0x0432: 0xA2, // в
+    0x0433: 0xA3, // г
+    0x0434: 0xA4, // д
+    0x0435: 0xA5, // е
+    0x0451: 0xB3, // ё
+    0x0436: 0xA6, // ж
+    0x0437: 0xA7, // з
+    0x0438: 0xA8, // и
+    0x0439: 0xA9, // й
+    0x043A: 0xAA, // к
+    0x043B: 0xAB, // л
+    0x043C: 0xAC, // м
+    0x043D: 0xAD, // н
+    0x043E: 0xAE, // о
+    0x043F: 0xAF, // п
+    0x0440: 0xE0, // р
+    0x0441: 0xE1, // с
+    0x0442: 0xE2, // т
+    0x0443: 0xE3, // у
+    0x0444: 0xE4, // ф
+    0x0445: 0xE5, // х
+    0x0446: 0xE6, // ц
+    0x0447: 0xE7, // ч
+    0x0448: 0xE8, // ш
+    0x0449: 0xE9, // щ
+    0x044A: 0xEA, // ъ
+    0x044B: 0xEB, // ы
+    0x044C: 0xEC, // ь
+    0x044D: 0xED, // э
+    0x044E: 0xEE, // ю
+    0x044F: 0xEF, // я
+    // Латиница (ASCII)
+    0x0041: 0x41,
+    0x0042: 0x42,
+    0x0043: 0x43,
+    0x0061: 0x61,
+    0x0062: 0x62,
+    0x0063: 0x63,
+  };
+
+  function toHex(num) {
+    return "0x" + num.toString(16).toUpperCase().padStart(2, "0");
+  }
+
+  document.addEventListener("keydown", (event) => {
+    const char = event.key.length === 1 ? event.key : "";
+    const codePoint = char ? char.codePointAt(0) : null;
+
+    // ASCII код — если символ в диапазоне 0-127
+    let ascii = (codePoint !== null && codePoint <= 127) ? codePoint : "-";
+
+    // Unicode — просто код точки кода
+    let unicode = codePoint !== null ? codePoint : "-";
+
+    // Windows-1251
+    let cp1251 = codePoint !== null && unicodeToCP1251[codePoint] !== undefined ? unicodeToCP1251[codePoint] : "-";
+
+    // CP866
+    let cp866 = codePoint !== null && unicodeToCP866[codePoint] !== undefined ? unicodeToCP866[codePoint] : "-";
+
+    document.getElementById("charDisplay").textContent = char || "(не печатная клавиша)";
+    document.getElementById("asciiCode").textContent = ascii !== "-" ? ascii + " (" + toHex(ascii) + ")" : "-";
+    document.getElementById("unicodeCode").textContent = unicode !== "-" ? unicode + " (" + toHex(unicode) + ")" : "-";
+    document.getElementById("cp1251Code").textContent = cp1251 !== "-" ? cp1251 + " (" + toHex(cp1251) + ")" : "-";
+    document.getElementById("cp866Code").textContent = cp866 !== "-" ? cp866 + " (" + toHex(cp866) + ")" : "-";
+  });
+</script>
+
+</body>
+</html>

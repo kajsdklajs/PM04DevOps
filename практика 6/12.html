@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Влияние искажений на текст (битовые ошибки)</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #222;
+    color: #eee;
+    padding: 20px;
+    max-width: 900px;
+    margin: auto;
+  }
+  textarea {
+    width: 100%;
+    height: 80px;
+    font-size: 16px;
+    background: #333;
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 5px;
+    resize: vertical;
+    padding: 10px;
+  }
+  #bitTable {
+    margin-top: 15px;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  #bitTable th, #bitTable td {
+    border: 1px solid #555;
+    text-align: center;
+    padding: 6px;
+    font-family: monospace;
+    cursor: pointer;
+  }
+  #bitTable th {
+    background: #444;
+  }
+  #bitTable td {
+    background: #333;
+  }
+  #bitTable td.active {
+    background: #0f0;
+    color: #000;
+    font-weight: bold;
+  }
+  .desc {
+    margin-top: 15px;
+    font-size: 14px;
+    color: #aaa;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Влияние битовых искажений на читаемость текста</h1>
+
+<label>Исходный текст:</label>
+<textarea id="inputText" placeholder="Введите текст...">Пример текста для проверки</textarea>
+
+<button id="encodeBtn">Закодировать и показать биты</button>
+
+<div id="bitContainer"></div>
+
+<h2>Результат после искажений:</h2>
+<textarea id="outputText" readonly></textarea>
+
+<div class="desc">
+  Клик по биту переключает его значение (0 → 1 или 1 → 0).<br>
+  Вы можете менять биты и наблюдать, как изменяется итоговый текст.
+</div>
+
+<script>
+  const inputText = document.getElementById('inputText');
+  const encodeBtn = document.getElementById('encodeBtn');
+  const bitContainer = document.getElementById('bitContainer');
+  const outputText = document.getElementById('outputText');
+
+  let bytes = null;       // Закодированные байты исходного текста
+  let bitsArray = [];     // Массив битов (0/1) для всех байтов
+
+  // Функция кодирования текста в UTF-8 Uint8Array
+  function encodeText(text) {
+    return new TextEncoder().encode(text);
+  }
+
+  // Функция декодирования Uint8Array в текст UTF-8
+  function decodeBytes(bytes) {
+    try {
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch(e) {
+      return '[Ошибка декодирования]';
+    }
+  }
+
+  // Конвертируем байт в массив из 8 бит (0/1)
+  function byteToBits(byte) {
+    const bits = [];
+    for(let i=7; i>=0; i--) {
+      bits.push((byte >> i) & 1);
+    }
+    return bits;
+  }
+
+  // Конвертируем массив из 8 бит в байт
+  function bitsToByte(bits) {
+    let byte = 0;
+    for(let i=0; i<8; i++) {
+      byte = (byte << 1) | bits[i];
+    }
+    return byte;
+  }
+
+  // Построение таблицы битов с кликабельными ячейками
+  function buildBitTable(bitsArray) {
+    let html = '<table id="bitTable"><thead><tr><th>Байт №</th>';
+    for(let i=0; i<8; i++) {
+      html += `<th>Бит ${i}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    for(let byteIndex=0; byteIndex<bitsArray.length; byteIndex++) {
+      html += `<tr><th>${byteIndex}</th>`;
+      for(let bitIndex=0; bitIndex<8; bitIndex++) {
+        const bitValue = bitsArray[byteIndex][bitIndex];
+        html += `<td data-byte="${byteIndex}" data-bit="${bitIndex}" class="${bitValue ? 'active' : ''}">${bitValue}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    bitContainer.innerHTML = html;
+
+    // Добавляем обработчики на клики по битам
+    document.querySelectorAll('#bitTable td').forEach(td => {
+      td.addEventListener('click', () => {
+        const byteIdx = +td.getAttribute('data-byte');
+        const bitIdx = +td.getAttribute('data-bit');
+
+        // Переключаем бит
+        bitsArray[byteIdx][bitIdx] = bitsArray[byteIdx][bitIdx] ? 0 : 1;
+
+        // Обновляем класс и текст
+        td.classList.toggle('active');
+        td.textContent = bitsArray[byteIdx][bitIdx];
+
+        updateOutputText();
+      });
+    });
+  }
+
+  // Обновляем выходной текст в зависимости от измененных битов
+  function updateOutputText() {
+    const modifiedBytes = bitsArray.map(bitsToByte);
+    const uint8arr = new Uint8Array(modifiedBytes);
+    outputText.value = decodeBytes(uint8arr);
+  }
+
+  encodeBtn.addEventListener('click', () => {
+    const text = inputText.value;
+    bytes = encodeText(text);
+    bitsArray = [];
+    for(let b of bytes) {
+      bitsArray.push(byteToBits(b));
+    }
+    buildBitTable(bitsArray);
+    updateOutputText();
+  });
+
+  // Инициализация
+  encodeBtn.click();
+</script>
+
+</body>
+</html>

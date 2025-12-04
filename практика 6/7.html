@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Гармоническое колебание</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    text-align: center;
+  }
+  canvas {
+    background: #000;
+    border: 1px solid #555;
+    margin-top: 20px;
+  }
+  label {
+    display: inline-block;
+    margin: 10px 20px;
+    font-size: 16px;
+  }
+  input[type="range"] {
+    width: 200px;
+    vertical-align: middle;
+  }
+  .value {
+    display: inline-block;
+    width: 50px;
+    text-align: left;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Гармоническое колебание</h1>
+
+<div>
+  <label>Амплитуда: <span id="amplitudeValue">1</span>
+    <input type="range" id="amplitude" min="0" max="5" step="0.1" value="1" />
+  </label>
+
+  <label>Частота (Гц): <span id="frequencyValue">1</span>
+    <input type="range" id="frequency" min="0.1" max="5" step="0.1" value="1" />
+  </label>
+</div>
+
+<canvas id="graph" width="800" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('graph');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const margin = 50;
+  const xStart = 0;
+  const xEnd = 4 * Math.PI; // фиксируем x диапазон в радианах
+
+  const amplitudeInput = document.getElementById('amplitude');
+  const frequencyInput = document.getElementById('frequency');
+  const amplitudeValue = document.getElementById('amplitudeValue');
+  const frequencyValue = document.getElementById('frequencyValue');
+
+  function yToCanvas(y, amplitude) {
+    // y изменяется от -amplitude до amplitude
+    return height - margin - ((y + amplitude) / (2 * amplitude)) * (height - 2 * margin);
+  }
+
+  function xToCanvas(x) {
+    return margin + ((x - xStart) / (xEnd - xStart)) * (width - 2 * margin);
+  }
+
+  function drawAxes(amplitude) {
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 1;
+
+    // Ось X
+    ctx.beginPath();
+    ctx.moveTo(margin, yToCanvas(0, amplitude));
+    ctx.lineTo(width - margin, yToCanvas(0, amplitude));
+    ctx.stroke();
+
+    // Ось Y
+    ctx.beginPath();
+    ctx.moveTo(margin, margin);
+    ctx.lineTo(margin, height - margin);
+    ctx.stroke();
+
+    // Метки по X (0, π, 2π, 3π, 4π)
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px monospace';
+    for (let i = 0; i <= 4; i++) {
+      let xVal = i * Math.PI;
+      let xPos = xToCanvas(xVal);
+      ctx.fillText(i === 0 ? '0' : (i + 'π'), xPos - 10, yToCanvas(0, amplitude) + 20);
+    }
+
+    // Метки по Y (-amplitude, 0, +amplitude)
+    ctx.fillText(`-${amplitude.toFixed(1)}`, margin - 40, yToCanvas(-amplitude, amplitude) + 4);
+    ctx.fillText('0', margin - 20, yToCanvas(0, amplitude) + 4);
+    ctx.fillText(`${amplitude.toFixed(1)}`, margin - 40, yToCanvas(amplitude, amplitude) + 4);
+  }
+
+  function drawFunction(amplitude, frequency) {
+    ctx.strokeStyle = 'lime';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    for (let px = margin; px <= width - margin; px++) {
+      let x = xStart + ((px - margin) / (width - 2 * margin)) * (xEnd - xStart);
+      let y = amplitude * Math.sin(frequency * x);
+      let py = yToCanvas(y, amplitude);
+
+      if (px === margin) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  function draw() {
+    const amplitude = parseFloat(amplitudeInput.value);
+    const frequency = parseFloat(frequencyInput.value);
+
+    amplitudeValue.textContent = amplitude.toFixed(1);
+    frequencyValue.textContent = frequency.toFixed(1);
+
+    ctx.clearRect(0, 0, width, height);
+
+    drawAxes(amplitude);
+    drawFunction(amplitude, frequency);
+  }
+
+  amplitudeInput.addEventListener('input', draw);
+  frequencyInput.addEventListener('input', draw);
+
+  draw();  // начальный вызов
+</script>
+
+</body>
+</html>

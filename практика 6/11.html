@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Конвертер текста и кодировок</title>
+<style>
+  body {
+    background: #222;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 900px;
+    margin: auto;
+  }
+  label, select, textarea, input {
+    display: block;
+    width: 100%;
+    margin-bottom: 15px;
+    font-size: 16px;
+    background: #333;
+    border: 1px solid #555;
+    color: #eee;
+    padding: 8px;
+    border-radius: 4px;
+  }
+  textarea {
+    height: 100px;
+    resize: vertical;
+  }
+  .container {
+    margin-bottom: 30px;
+  }
+  pre {
+    background: #111;
+    border: 1px solid #555;
+    padding: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+
+<h1>Конвертер текста и кодировок</h1>
+
+<div class="container">
+  <label for="inputText">Исходный текст</label>
+  <textarea id="inputText" placeholder="Введите текст...">Пример текста</textarea>
+</div>
+
+<div class="container">
+  <label for="encodingSelect">Кодировка</label>
+  <select id="encodingSelect">
+    <option value="utf-8">UTF-8</option>
+    <option value="windows-1251">Windows-1251</option>
+    <option value="koi8-r">KOI8-R</option>
+    <option value="iso-8859-1">ISO-8859-1</option>
+    <option value="ascii">ASCII</option>
+  </select>
+</div>
+
+<div class="container">
+  <label for="encodedText">Закодированный текст (Base64)</label>
+  <textarea id="encodedText" placeholder="Base64 код"></textarea>
+</div>
+
+<button id="encodeBtn">Закодировать →</button>
+<button id="decodeBtn" style="margin-top: 10px;">Декодировать ←</button>
+
+<h2>Двоичное представление</h2>
+<pre id="binaryOutput"></pre>
+
+<h2>16-ричное представление</h2>
+<pre id="hexOutput"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
+<script>
+  const inputText = document.getElementById('inputText');
+  const encodingSelect = document.getElementById('encodingSelect');
+  const encodedText = document.getElementById('encodedText');
+  const binaryOutput = document.getElementById('binaryOutput');
+  const hexOutput = document.getElementById('hexOutput');
+  const encodeBtn = document.getElementById('encodeBtn');
+  const decodeBtn = document.getElementById('decodeBtn');
+
+  // Функция для отображения двоичного представления Uint8Array
+  function toBinaryString(bytes) {
+    return Array.from(bytes).map(b => b.toString(2).padStart(8, '0')).join(' ');
+  }
+
+  // Функция для отображения 16-ричного представления Uint8Array
+  function toHexString(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  }
+
+  // Кодируем текст в выбранной кодировке и выводим Base64 + двоичный и hex
+  function encode() {
+    const text = inputText.value;
+    const encoding = encodingSelect.value;
+
+    let encodedBytes;
+
+    try {
+      if (encoding === 'utf-8') {
+        // Встроенный TextEncoder для UTF-8
+        const encoder = new TextEncoder();
+        encodedBytes = encoder.encode(text);
+      } else {
+        // Используем polyfill для других кодировок
+        encodedBytes = Encoding.convert(Encoding.stringToCode(text), encoding);
+      }
+    } catch(e) {
+      alert('Ошибка кодирования: ' + e.message);
+      return;
+    }
+
+    // Конвертируем Uint8Array в Base64
+    let base64 = btoa(String.fromCharCode(...encodedBytes));
+
+    encodedText.value = base64;
+    binaryOutput.textContent = toBinaryString(encodedBytes);
+    hexOutput.textContent = toHexString(encodedBytes);
+  }
+
+  // Декодируем Base64 -> байты -> текст с выбранной кодировкой
+  function decode() {
+    const base64 = encodedText.value.trim();
+    const encoding = encodingSelect.value;
+
+    if (!base64) {
+      alert('Введите Base64 строку для декодирования');
+      return;
+    }
+
+    let bytes;
+    try {
+      const binaryString = atob(base64);
+      bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
+    } catch(e) {
+      alert('Ошибка при чтении Base64: ' + e.message);
+      return;
+    }
+
+    let decodedText;
+    try {
+      if (encoding === 'utf-8') {
+        const decoder = new TextDecoder('utf-8');
+        decodedText = decoder.decode(bytes);
+      } else {
+        decodedText = Encoding.codeToString(Encoding.convert(bytes, 'UNICODE', encoding));
+      }
+    } catch(e) {
+      alert('Ошибка декодирования: ' + e.message);
+      return;
+    }
+
+    inputText.value = decodedText;
+    binaryOutput.textContent = toBinaryString(bytes);
+    hexOutput.textContent = toHexString(bytes);
+  }
+
+  encodeBtn.addEventListener('click', encode);
+  decodeBtn.addEventListener('click', decode);
+
+  // По умолчанию кодируем исходный текст
+  encode();
+</script>
+
+</body>
+</html>
